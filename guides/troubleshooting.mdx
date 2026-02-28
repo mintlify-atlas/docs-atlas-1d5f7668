@@ -1,0 +1,418 @@
+---
+title: Troubleshooting
+description: Common issues, error messages, and solutions when using Oink
+---
+
+## Build Errors
+
+### Invalid oinkz Property Access
+
+**Error message:**
+```
+[oink] Invalid oinkz property access:
+src/App.tsx:15:34 - Property 'header' does not exist on 'styles'.
+Available: container, title
+```
+
+**Cause:**
+You're accessing a class name that wasn't defined in the `oinkz` stylesheet.
+
+**Solution:**
+
+<Steps>
+  <Step title="Check the class name spelling">
+    Ensure the property name matches exactly (case-sensitive)
+    
+    ```tsx
+    const styles = oinkz`.container { }`
+    
+    // ❌ Wrong
+    styles.Container
+    
+    // ✅ Correct
+    styles.container
+    ```
+  </Step>
+  
+  <Step title="Verify it's a simple class selector">
+    Only top-level simple class selectors (`.className`) are exported
+    
+    ```tsx
+    const styles = oinkz`
+      .parent .child { }  /* ❌ Not exported */
+      .foo.bar { }        /* ❌ Not exported */
+      .simple { }         /* ✅ Exported */
+    `
+    
+    styles.simple // ✅ Works
+    styles.child  // ❌ Error
+    ```
+  </Step>
+  
+  <Step title="Add the missing class">
+    If you need a class that doesn't exist, add it to the stylesheet
+    
+    ```tsx
+    const styles = oinkz`
+      .container { }
+      .title { }
+      .header { }  /* Add this */
+    `
+    ```
+  </Step>
+</Steps>
+
+### Template Expressions Not Supported
+
+**Error message:**
+```
+[vite-plugin-oink] Template expressions not supported in oink`` in src/Button.tsx
+```
+
+**Cause:**
+You're using `${}` interpolation in an `oink` or `oinkz` template.
+
+**Solution:**
+
+Oink requires static CSS strings. Use one of these approaches:
+
+<Accordion title="Option 1: Use static CSS">
+  ```tsx
+  // ❌ Dynamic (not allowed)
+  const color = 'blue'
+  const button = oink`background: ${color};`
+  
+  // ✅ Static (correct)
+  const button = oink`background: blue;`
+  ```
+</Accordion>
+
+<Accordion title="Option 2: Use CSS variables">
+  ```tsx
+  const button = oink`
+    background: var(--button-color);
+  `
+  
+  // Set the variable via inline styles
+  <button 
+    className={button}
+    style={{ '--button-color': dynamicColor }}
+  >
+    Click
+  </button>
+  ```
+</Accordion>
+
+<Accordion title="Option 3: Create multiple variants">
+  ```tsx
+  const styles = oinkz`
+    .primary {
+      background: blue;
+    }
+    
+    .secondary {
+      background: gray;
+    }
+  `
+  
+  <button className={styles[variant]}>Click</button>
+  ```
+</Accordion>
+
+### Missing @oink Marker
+
+**Symptom:**
+Build succeeds but no styles appear in the browser.
+
+**Cause:**
+Your CSS file doesn't have the `@oink;` marker where generated styles should be inserted.
+
+**Solution:**
+
+Add `@oink;` to your main CSS file:
+
+```css styles.css
+/* Your existing styles */
+body {
+  font-family: sans-serif;
+}
+
+/* Add this marker */
+@oink;
+```
+
+<Note>
+The marker can appear anywhere in your CSS file. Generated styles will be inserted at that location.
+</Note>
+
+## TypeScript Plugin Issues
+
+### No Autocomplete for oinkz Classes
+
+**Symptoms:**
+- No autocomplete when typing `styles.`
+- No errors for invalid property access
+
+**Solutions:**
+
+<Steps>
+  <Step title="Verify plugin is installed">
+    ```bash
+    bun add -D typescript-plugin-oink
+    ```
+  </Step>
+  
+  <Step title="Check tsconfig.json">
+    ```json
+    {
+      "compilerOptions": {
+        "plugins": [
+          { "name": "typescript-plugin-oink" }
+        ]
+      }
+    }
+    ```
+  </Step>
+  
+  <Step title="Select workspace TypeScript version">
+    In VS Code:
+    1. Open any `.ts` or `.tsx` file
+    2. `Cmd+Shift+P` → "TypeScript: Select TypeScript Version"
+    3. Choose "Use Workspace Version"
+  </Step>
+  
+  <Step title="Restart VS Code">
+    Close and reopen VS Code or reload the window
+  </Step>
+</Steps>
+
+### TypeScript Version Mismatch
+
+**Error:**
+```
+Plugin typescript-plugin-oink failed to load
+```
+
+**Solution:**
+
+Ensure your workspace TypeScript version matches the plugin requirements:
+
+```json package.json
+{
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "typescript-plugin-oink": "latest"
+  }
+}
+```
+
+Reinstall if needed:
+```bash
+bun install
+```
+
+## Runtime Issues
+
+### Styles Not Updating in Dev Mode
+
+**Symptom:**
+Edit CSS in `oink` template but changes don't reflect in browser.
+
+**Solutions:**
+
+<Accordion title="Check HMR is working">
+  1. Make a change to any component
+  2. Verify the page updates without full reload
+  3. If HMR is broken, check for syntax errors in your code
+</Accordion>
+
+<Accordion title="Hard refresh the browser">
+  - Mac: `Cmd+Shift+R`
+  - Windows/Linux: `Ctrl+Shift+R`
+  
+  This clears cached CSS.
+</Accordion>
+
+<Accordion title="Restart dev server">
+  ```bash
+  # Stop server (Ctrl+C)
+  # Clear cache
+  rm -rf node_modules/.vite
+  
+  # Restart
+  npm run dev
+  ```
+</Accordion>
+
+### Class Name Showing as Variable Name
+
+**Symptom:**
+```html
+<button class="button">Click</button>
+<!-- Expected: <button class="o_a1b2c3">Click</button> -->
+```
+
+**Cause:**
+The Vite plugin isn't transforming your code. This happens when:
+
+1. File extension isn't `.jsx`, `.tsx`, `.js`, or `.ts`
+2. Plugin isn't configured in `vite.config.ts`
+3. Import path is wrong
+
+**Solution:**
+
+Verify Vite configuration:
+
+```ts vite.config.ts
+import { defineConfig } from 'vite'
+import { oinkPlugin } from 'vite-plugin-oink'
+
+export default defineConfig({
+  plugins: [
+    oinkPlugin(), // Must be here
+  ],
+})
+```
+
+## ESLint Issues
+
+### False Positive: "no-dynamic-oink" Error
+
+**Error:**
+```
+oink`` cannot contain template expressions
+```
+
+**Scenario:**
+You're not using template expressions, but ESLint still flags it.
+
+**Solution:**
+
+This usually happens with backtick strings inside the CSS:
+
+```tsx
+// ❌ ESLint confused by nested backticks
+const broken = oink`
+  content: \`foo\`;
+`
+
+// ✅ Use quotes instead
+const fixed = oink`
+  content: 'foo';
+`
+```
+
+### Disable Rule for Specific Line
+
+If you have a legitimate edge case:
+
+```tsx
+// eslint-disable-next-line oink/no-dynamic-oink
+const special = oink`...`
+```
+
+<Warning>
+Only disable the rule if absolutely necessary. The rule prevents patterns that break build-time extraction.
+</Warning>
+
+## Build Performance
+
+### Slow Build Times
+
+**Symptoms:**
+- Production builds taking longer than expected
+- Vite transform step is slow
+
+**Solutions:**
+
+<Accordion title="Reduce number of oink calls">
+  Instead of many small `oink` calls:
+  
+  ```tsx
+  // ❌ Many calls
+  const a = oink`color: red;`
+  const b = oink`color: blue;`
+  const c = oink`color: green;`
+  
+  // ✅ One oinkz call
+  const styles = oinkz`
+    .a { color: red; }
+    .b { color: blue; }
+    .c { color: green; }
+  `
+  ```
+</Accordion>
+
+<Accordion title="Check file size">
+  Very large CSS strings can slow parsing. Consider splitting into multiple files.
+</Accordion>
+
+<Accordion title="Disable inlining if needed">
+  Inlining requires extra AST analysis. If it's causing issues:
+  
+  ```ts
+  oinkPlugin({ inline: false })
+  ```
+</Accordion>
+
+## Getting Help
+
+### Enable Debug Logging
+
+Add this to see what Oink is doing:
+
+```ts vite.config.ts
+import { defineConfig } from 'vite'
+import { oinkPlugin } from 'vite-plugin-oink'
+
+export default defineConfig({
+  plugins: [
+    oinkPlugin(),
+  ],
+  logLevel: 'info', // or 'debug' for more details
+})
+```
+
+### Check Generated Output
+
+Inspect the transformed code:
+
+1. Build your project: `npm run build`
+2. Look in `dist/` folder
+3. Open the generated JS files
+4. Search for your component to see transformed code
+
+### Common Checklist
+
+<Steps>
+  <Step title="Verify all packages are installed">
+    ```bash
+    bun install
+    ```
+  </Step>
+  
+  <Step title="Check Vite config is correct">
+    Plugin imported and added to plugins array
+  </Step>
+  
+  <Step title="Ensure @oink marker exists">
+    Present in your main CSS file
+  </Step>
+  
+  <Step title="Restart dev server">
+    Stop and start `npm run dev`
+  </Step>
+  
+  <Step title="Clear cache">
+    ```bash
+    rm -rf node_modules/.vite
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+If you're still stuck, check the [GitHub issues](https://github.com/your-org/oink/issues) or open a new issue with:
+- Error message (full text)
+- Minimal reproduction code
+- Versions of oink, vite, and node
+</Tip>

@@ -1,0 +1,166 @@
+---
+title: 'oinkz()'
+description: 'Create multiple CSS classes from a stylesheet-like syntax'
+---
+
+## Function Signature
+
+```typescript
+export function oinkz<K extends string = string>(
+  strings: TemplateStringsArray,
+  ..._values: never[]
+): Record<K, string>
+```
+
+## Description
+
+Creates multiple CSS classes from a stylesheet-like syntax. Used as a tagged template literal for IDE CSS support. Returns an object mapping class names to generated unique class names.
+
+At build time, this is replaced with a literal object. The CSS is extracted and collected into the stylesheet.
+
+## Type Parameters
+
+<ParamField path="K" type="string" default="string">
+  The union type of class names that will be extracted from the stylesheet
+</ParamField>
+
+## Parameters
+
+<ParamField path="strings" type="TemplateStringsArray" required>
+  The template strings array containing the CSS stylesheet with class definitions
+</ParamField>
+
+<ParamField path="_values" type="never[]">
+  Template literal values (not supported - must be empty)
+</ParamField>
+
+## Returns
+
+<ParamField path="return" type="Record<K, string>">
+  An object mapping original class names to generated unique class names
+</ParamField>
+
+## Usage
+
+<CodeGroup>
+
+```tsx Basic Usage
+const styles = oinkz`
+  .container {
+    max-width: 800px;
+  }
+  .title {
+    font-size: 2rem;
+  }
+`;
+
+// styles.container => "oink_abc123"
+// styles.title => "oink_def456"
+```
+
+```tsx Component Example
+import { oinkz } from 'oink';
+
+function Card() {
+  const styles = oinkz`
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+    }
+    
+    .header {
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    
+    .content {
+      color: #666;
+      line-height: 1.5;
+    }
+  `;
+  
+  return (
+    <div className={styles.card}>
+      <h2 className={styles.header}>Title</h2>
+      <p className={styles.content}>Content goes here</p>
+    </div>
+  );
+}
+```
+
+```tsx Type-Safe Usage
+import { oinkz } from 'oink';
+
+// Define the class names with type safety
+const styles = oinkz<'button' | 'icon' | 'label'>`
+  .button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .icon {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .label {
+    font-weight: 500;
+  }
+`;
+
+// TypeScript knows these properties exist
+const className = styles.button; // ✓
+const invalid = styles.unknown; // ✗ TypeScript error
+```
+
+</CodeGroup>
+
+## Build-Time Behavior
+
+<Tabs>
+  <Tab title="Development">
+    In development mode, `oinkz()` parses class names from the CSS string using regex and generates runtime hashes for each class.
+    
+    ```tsx
+    const styles = oinkz`.foo { color: red; } .bar { color: blue; }`;
+    // Returns: { foo: "oink_abc123", bar: "oink_def456" }
+    ```
+  </Tab>
+  
+  <Tab title="Production">
+    At build time, the entire `oinkz()` call is replaced with a literal object, and the CSS is extracted to the stylesheet.
+    
+    ```tsx
+    // Before build
+    const styles = oinkz`.btn { padding: 10px; }`;
+    
+    // After build
+    const styles = { btn: "oink_xyz789" };
+    ```
+  </Tab>
+</Tabs>
+
+## Class Name Pattern
+
+Class names are extracted using the following regex pattern:
+
+```regex
+/\.([a-zA-Z_][a-zA-Z0-9_-]*)\s*\{/g
+```
+
+This means:
+- Class names must start with `.`
+- First character must be a letter or underscore
+- Subsequent characters can be letters, numbers, underscores, or hyphens
+- Must be followed by an opening brace `{`
+
+## Notes
+
+- Must be used as a tagged template literal (no interpolation supported)
+- All classes are scoped to their generated unique names
+- Supports all standard CSS syntax including pseudo-classes, pseudo-elements, and media queries
+- Use the generic type parameter `K` for type-safe class name access
+- The same CSS input will always generate the same class names (deterministic hashing)

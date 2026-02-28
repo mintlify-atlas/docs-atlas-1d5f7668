@@ -1,0 +1,374 @@
+---
+title: Production Builds
+description: Optimization strategies and inlining behavior for zero-runtime performance
+---
+
+## How Oink Works
+
+Oink achieves zero-runtime overhead through build-time CSS extraction and code transformation:
+
+<Steps>
+  <Step title="Parse Source Files">
+    The Vite plugin parses all `.js`, `.ts`, `.jsx`, and `.tsx` files
+  </Step>
+  
+  <Step title="Extract CSS">
+    Finds all `oink` and `oinkz` tagged templates and extracts their CSS
+  </Step>
+  
+  <Step title="Transform Code">
+    Replaces tagged templates with generated class name strings/objects
+  </Step>
+  
+  <Step title="Inline Values (Production)">
+    In production, performs constant propagation to inline class names
+  </Step>
+  
+  <Step title="Inject CSS">
+    Collects all CSS and inserts it at the `@oink;` marker in your stylesheet
+  </Step>
+</Steps>
+
+## Development vs Production
+
+### Development Mode
+
+In development, Oink preserves variable names for better debugging:
+
+**Before:**
+```tsx
+const button = oink`
+  padding: 1rem;
+  background: blue;
+`
+
+const App = () => <button className={button}>Click</button>
+```
+
+**After (dev):**
+```tsx
+const button = "button_a1b2c3"
+
+const App = () => <button className={button}>Click</button>
+```
+
+Benefits:
+- Easier to debug in DevTools
+- Better error messages with variable names
+- Faster hot module replacement (HMR)
+
+### Production Mode
+
+In production, Oink inlines class names and removes variables:
+
+**Before:**
+```tsx
+const button = oink`
+  padding: 1rem;
+  background: blue;
+`
+
+const App = () => <button className={button}>Click</button>
+```
+
+**After (production):**
+```tsx
+const App = () => <button className="o_a1b2c3">Click</button>
+```
+
+Benefits:
+- Smaller bundle size (no intermediate variables)
+- Faster runtime (direct string literals)
+- Better minification
+
+## The `inline` Option
+
+Control inlining behavior via the Vite plugin option:
+
+```ts vite.config.ts
+import { defineConfig } from 'vite'
+import { oinkPlugin } from 'vite-plugin-oink'
+
+export default defineConfig({
+  plugins: [
+    oinkPlugin({
+      inline: 'production', // default
+    }),
+  ],
+})
+```
+
+### Option Values
+
+<Accordion title="inline: 'production' (default)">
+  **Behavior:**
+  - Inlines in production builds only
+  - Preserves variables in development
+
+  **Use when:**
+  - You want the best of both worlds (default)
+  - You need debuggable class names in dev
+  - You want maximum optimization in production
+
+  ```ts
+  oinkPlugin({ inline: 'production' })
+  ```
+</Accordion>
+
+<Accordion title="inline: true">
+  **Behavior:**
+  - Always inlines, even in development
+  - Removes all intermediate variables
+
+  **Use when:**
+  - You want to test production behavior in dev
+  - You're debugging inlining issues
+  - Bundle size is critical even in dev
+
+  ```ts
+  oinkPlugin({ inline: true })
+  ```
+</Accordion>
+
+<Accordion title="inline: false">
+  **Behavior:**
+  - Never inlines, keeps variables in both modes
+  - Still extracts CSS and transforms templates
+
+  **Use when:**
+  - You need to reference class names programmatically
+  - You're debugging transformation issues
+  - You prefer explicit variable references
+
+  ```ts
+  oinkPlugin({ inline: false })
+  ```
+</Accordion>
+
+## Inlining Safety
+
+Oink only inlines class names when it's safe to do so. The plugin analyzes your code to ensure inlining won't break functionality.
+
+### Safe to Inline
+
+```tsx
+// ✅ JSX attribute
+<div className={button} />
+
+// ✅ Template literal
+const combined = `${button} extra-class`
+
+// ✅ String concatenation
+const combined = button + ' extra-class'
+
+// ✅ Conditional
+const cls = isActive ? button : other
+
+// ✅ Logical operators
+const cls = button || 'fallback'
+```
+
+### Not Safe to Inline
+
+If any reference is unsafe, the entire variable is kept:
+
+```tsx
+// ❌ Function argument
+clsx(button, 'other')
+
+// ❌ Object property
+const obj = { className: button }
+
+// ❌ Array element
+const arr = [button]
+
+// ❌ Exported or passed around
+export const button = oink`...`
+```
+
+<Note>
+When `inline: false`, all variables are preserved regardless of usage pattern.
+</Note>
+
+## `oinkz` Inlining
+
+For `oinkz` stylesheets, inlining works on property access:
+
+**Before:**
+```tsx
+const styles = oinkz`
+  .container { padding: 1rem; }
+  .title { font-size: 2rem; }
+`
+
+const App = () => (
+  <div className={styles.container}>
+    <h1 className={styles.title}>Hello</h1>
+  </div>
+)
+```
+
+**After (production with inline):**
+```tsx
+const App = () => (
+  <div className="o_abc123">
+    <h1 className="o_def456">Hello</h1>
+  </div>
+)
+```
+
+The entire `styles` object and variable are removed.
+
+## CSS Output
+
+Generated CSS is inserted at the `@oink;` marker:
+
+```css styles.css
+body {
+  font-family: sans-serif;
+}
+
+@oink;
+```
+
+After build:
+```css
+body {
+  font-family: sans-serif;
+}
+
+.o_a1b2c3 {
+  padding: 1rem;
+  background: blue;
+}
+
+.o_def456 {
+  font-size: 2rem;
+}
+```
+
+<Warning>
+You must include `@oink;` in your CSS file. Without it, generated styles won't be included in the build.
+</Warning>
+
+## Class Name Generation
+
+Class names are generated deterministically based on:
+
+1. **File path** - Ensures uniqueness across files
+2. **CSS content** - Ensures uniqueness within a file
+3. **Index** - Handles multiple `oink` calls with identical CSS
+4. **Original name** (for `oinkz`) - Maintains traceability
+
+### Development Format
+
+```tsx
+const button = oink`...`
+// Generates: "button_a1b2c3"
+//            ^^^^^^ ^^^^^^
+//            |      hash of content
+//            variable name
+```
+
+### Production Format
+
+```tsx
+const button = oink`...`
+// Generates: "o_a1b2c3"
+//            ^ ^^^^^^
+//            | hash
+//            prefix
+```
+
+<Tip>
+Development class names include the variable name, making it easier to identify styles in DevTools.
+</Tip>
+
+## Bundle Size Impact
+
+Comparing before and after inlining:
+
+**Without inlining (inline: false):**
+```tsx
+// ~120 bytes
+const button = "o_a1b2c3";
+const card = "o_def456";
+const title = "o_ghi789";
+
+const App = () => (
+  <div className={card}>
+    <h1 className={title}>Title</h1>
+    <button className={button}>Click</button>
+  </div>
+);
+```
+
+**With inlining (inline: true):**
+```tsx
+// ~80 bytes (33% smaller)
+const App = () => (
+  <div className="o_def456">
+    <h1 className="o_ghi789">Title</h1>
+    <button className="o_a1b2c3">Click</button>
+  </div>
+);
+```
+
+## Hot Module Replacement (HMR)
+
+In development, Oink supports HMR for CSS changes:
+
+1. Edit CSS in an `oink` or `oinkz` template
+2. Vite plugin detects the change
+3. Virtual CSS module is invalidated
+4. Styles update without full page reload
+
+```tsx
+// Edit this:
+const button = oink`
+  background: blue; /* Change to red */
+`
+
+// CSS updates instantly without losing React state
+```
+
+## Build Validation
+
+The build process validates your code:
+
+```bash
+# Development - shows warnings
+npm run dev
+
+# Production - fails on errors  
+npm run build
+```
+
+Validation catches:
+- Invalid `oinkz` property access
+- Template expressions in `oink`/`oinkz`
+- Missing class definitions
+
+## Best Practices
+
+<Steps>
+  <Step title="Use default inline: 'production'">
+    Get debugging benefits in dev and performance in production
+  </Step>
+  
+  <Step title="Add @oink marker early">
+    Include `@oink;` in your CSS file from the start
+  </Step>
+  
+  <Step title="Test production builds">
+    Run `npm run build` regularly to catch validation errors
+  </Step>
+  
+  <Step title="Monitor bundle size">
+    Check that inlining is working - no oink variables in production bundle
+  </Step>
+</Steps>
+
+<Tip>
+Use the browser DevTools to inspect the HTML and verify class names are inlined in production builds.
+</Tip>

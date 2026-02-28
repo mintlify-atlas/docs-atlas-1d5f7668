@@ -1,0 +1,193 @@
+---
+title: Vite Plugin
+description: Set up vite-plugin-oink to transform oink styles at build time
+---
+
+The Vite plugin transforms `oink` and `oinkz` calls during development and production builds. It extracts CSS from your styled components and handles module bundling automatically.
+
+## Installation
+
+<Steps>
+  <Step title="Install the plugin">
+    Install `vite-plugin-oink` alongside Vite:
+
+    ```bash
+    npm install vite-plugin-oink
+    ```
+  </Step>
+
+  <Step title="Add to Vite config">
+    Import and add the plugin to your `vite.config.ts`:
+
+    ```ts vite.config.ts
+    import { defineConfig } from "vite";
+    import react from "@vitejs/plugin-react";
+    import oinkPlugin from "vite-plugin-oink";
+
+    export default defineConfig({
+      plugins: [oinkPlugin(), react()],
+    });
+    ```
+
+    <Warning>
+      The Oink plugin must be placed **before** framework plugins like `@vitejs/plugin-react` in the plugins array to ensure proper transformation order.
+    </Warning>
+  </Step>
+</Steps>
+
+## Configuration
+
+The plugin accepts an optional configuration object:
+
+```ts
+export interface OinkPluginOptions {
+  /**
+   * Inline class names at usage sites and remove intermediate variables.
+   * - `true`: Always inline
+   * - `false`: Never inline
+   * - `'production'`: Only inline in production builds (default)
+   */
+  inline?: boolean | "production";
+}
+```
+
+### Inline Option
+
+The `inline` option controls whether class names are inlined at their usage sites:
+
+<CodeGroup>
+```ts Always Inline (true)
+import { defineConfig } from "vite";
+import oinkPlugin from "vite-plugin-oink";
+
+export default defineConfig({
+  plugins: [
+    oinkPlugin({ inline: true }),
+  ],
+});
+```
+
+```ts Never Inline (false)
+import { defineConfig } from "vite";
+import oinkPlugin from "vite-plugin-oink";
+
+export default defineConfig({
+  plugins: [
+    oinkPlugin({ inline: false }),
+  ],
+});
+```
+
+```ts Production Only (default)
+import { defineConfig } from "vite";
+import oinkPlugin from "vite-plugin-oink";
+
+export default defineConfig({
+  plugins: [
+    oinkPlugin({ inline: "production" }),
+    // or simply:
+    oinkPlugin(),
+  ],
+});
+```
+</CodeGroup>
+
+**When to use each mode:**
+
+- **`"production"` (default)**: Balances debugging in development with optimized output in production
+- **`true`**: Maximum performance, minimal variable declarations (harder to debug)
+- **`false`**: Preserve all variables for easier debugging and stack traces
+
+## How It Works
+
+### Development Mode
+
+During development (`vite dev`):
+
+1. The plugin transforms `oink` and `oinkz` calls in your source files
+2. CSS is extracted and injected via virtual modules (e.g., `App.tsx.oink.css`)
+3. Vite handles CSS injection and hot module replacement (HMR) automatically
+4. Invalid `oinkz` property accesses generate warnings (non-blocking)
+
+### Production Mode
+
+During production builds (`vite build`):
+
+1. The plugin transforms all `oink` and `oinkz` calls
+2. CSS is collected and bundled into your main CSS output
+3. Invalid `oinkz` property accesses fail the build with errors
+4. Class names can be inlined based on the `inline` option
+
+## Build-Time Validation
+
+The Vite plugin validates `oinkz` property accesses at build time:
+
+```tsx
+const styles = oinkz`
+  .button { color: blue; }
+  .text { font-size: 16px; }
+`;
+
+// ✅ Valid - 'button' is defined
+<div className={styles.button} />
+
+// ❌ Build error - 'link' is not defined
+<div className={styles.link} />
+// Error: Property 'link' does not exist on 'styles'.
+// Available: button, text
+```
+
+**Error behavior:**
+- **Development**: Warnings logged to console (non-blocking)
+- **Production**: Build fails with detailed error messages
+
+## CSS Injection
+
+In production builds, Oink CSS is injected at the `@oink` marker in your main CSS file:
+
+```css src/index.css
+/* Your global styles */
+body {
+  margin: 0;
+  font-family: sans-serif;
+}
+
+/* Oink styles will be injected here */
+@oink;
+```
+
+If no `@oink` marker is present, the plugin will inject CSS automatically.
+
+## Hot Module Replacement
+
+The plugin provides first-class HMR support:
+
+- Edit CSS in `oink` or `oinkz` calls → styles update instantly
+- Edit component logic → component re-renders with preserved state
+- No full page reload required
+
+## Troubleshooting
+
+### Plugin Order Matters
+
+Ensure the Oink plugin comes before framework plugins:
+
+```ts
+// ✅ Correct
+plugins: [oinkPlugin(), react()]
+
+// ❌ Wrong
+plugins: [react(), oinkPlugin()]
+```
+
+### TypeScript Errors
+
+If you see TypeScript errors on `oink` or `oinkz` calls, ensure you have the proper type definitions installed. See [TypeScript Plugin](/plugins/typescript-plugin) for IDE support.
+
+### CSS Not Loading
+
+If styles aren't appearing:
+
+1. Verify the plugin is registered in `vite.config.ts`
+2. Check that your main CSS file is imported in your app
+3. For production builds, ensure the `@oink` marker exists in your CSS

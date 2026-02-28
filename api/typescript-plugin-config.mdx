@@ -1,0 +1,341 @@
+---
+title: "TypeScript Plugin Configuration"
+description: "Configure typescript-plugin-oink for IDE autocomplete, error checking, and hover information"
+---
+
+The TypeScript plugin provides IDE support for `oinkz` stylesheets, including autocomplete for class names, real-time error checking for invalid class access, and hover information.
+
+## Installation
+
+Install the TypeScript plugin as a dev dependency:
+
+<CodeGroup>
+```bash npm
+npm install -D typescript-plugin-oink
+```
+
+```bash bun
+bun add -D typescript-plugin-oink
+```
+
+```bash yarn
+yarn add -D typescript-plugin-oink
+```
+
+```bash pnpm
+pnpm add -D typescript-plugin-oink
+```
+</CodeGroup>
+
+## Configuration
+
+<Steps>
+  <Step title="Add plugin to tsconfig.json">
+    Add the plugin to your TypeScript compiler options:
+
+    ```json tsconfig.json
+    {
+      "compilerOptions": {
+        "plugins": [
+          { "name": "typescript-plugin-oink" }
+        ]
+      }
+    }
+    ```
+
+    <Note>
+      The plugin only works with `oinkz` (multi-class stylesheets). The `oink` function for single classes returns a plain string and doesn't need IDE support.
+    </Note>
+  </Step>
+
+  <Step title="Configure your IDE">
+    TypeScript language service plugins require your editor to use the workspace TypeScript version.
+
+    ### VS Code
+
+    1. Open the Command Palette: `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux)
+    2. Type and select: **TypeScript: Select TypeScript Version**
+    3. Choose: **Use Workspace Version**
+
+    Your IDE will now use the TypeScript version from your project's `node_modules` along with the plugin.
+
+    ### Other IDEs
+
+    Most TypeScript-aware editors support workspace TypeScript versions:
+
+    - **WebStorm/IntelliJ**: Automatically uses workspace TypeScript
+    - **Vim/Neovim**: Configure your LSP client to use the workspace `tsserver`
+    - **Sublime Text**: Install LSP-typescript and configure workspace TypeScript
+  </Step>
+
+  <Step title="Verify plugin is working">
+    Create a test file to verify the plugin is active:
+
+    ```tsx test.tsx
+    import { oinkz } from 'oink'
+
+    const styles = oinkz`
+      .container {
+        padding: 1rem;
+      }
+
+      .title {
+        font-size: 2rem;
+      }
+    `
+
+    // Type styles. and you should see autocomplete for:
+    // - container
+    // - title
+    const test = styles.
+    ```
+
+    If autocomplete appears, the plugin is working correctly.
+  </Step>
+</Steps>
+
+## Features
+
+The TypeScript plugin provides three main IDE features for `oinkz` stylesheets:
+
+### Autocomplete
+
+When you type a dot after an `oinkz` variable, the plugin provides autocomplete suggestions for all available class names defined in the template.
+
+```tsx
+const styles = oinkz`
+  .button {
+    padding: 0.5rem 1rem;
+  }
+
+  .primary {
+    background: blue;
+  }
+
+  .secondary {
+    background: gray;
+  }
+`
+
+// Type styles. to see: button, primary, secondary
+const className = styles.
+```
+
+Only **top-level simple class selectors** (like `.button`) appear in autocomplete. Compound selectors (`.foo.bar`) and descendant selectors (`.foo .bar`) style elements but aren't exported as properties.
+
+### Error Checking
+
+The plugin validates class name access in real-time. If you try to access a class that doesn't exist, you'll see an error in your IDE before running the build.
+
+```tsx
+const styles = oinkz`
+  .container {
+    max-width: 800px;
+  }
+`
+
+// ✅ Valid - no error
+const valid = styles.container
+
+// ❌ Error: Property 'wrapper' does not exist. Available classes: container
+const invalid = styles.wrapper
+```
+
+This catches typos and refactoring issues during development instead of at build time.
+
+### Hover Information
+
+Hover over a class name access to see details about the CSS class:
+
+```tsx
+const styles = oinkz`
+  .header {
+    background: #333;
+  }
+`
+
+// Hover over "header" to see:
+// (oinkz class) header: string
+// CSS class from styles
+const headerClass = styles.header
+```
+
+For invalid class names, the hover info shows a warning:
+
+```tsx
+// Hover shows:
+// ⚠️ Class 'footer' not defined in styles
+const footerClass = styles.footer
+```
+
+## How It Works
+
+The TypeScript plugin is a language service plugin that enhances the TypeScript compiler's IDE features:
+
+1. **Parse**: The plugin scans your source files for `oinkz` tagged templates
+2. **Extract**: It extracts class names using the same logic as the Vite plugin (only simple class selectors)
+3. **Enhance**: It overrides TypeScript's autocomplete, diagnostics, and quick info to provide class-specific information
+4. **Type-safe**: Class names are validated against the actual CSS content in the template
+
+<Note>
+  The plugin runs only in your IDE for development support. It doesn't affect your build output or runtime behavior.
+</Note>
+
+## Limitations
+
+### Only Works with `oinkz`
+
+The `oink` function returns a plain `string` and doesn't need IDE support:
+
+```tsx
+// No IDE support needed - just a string
+const button = oink`padding: 1rem;`
+```
+
+The plugin only enhances `oinkz` because it returns an object with class name properties:
+
+```tsx
+// IDE support for .container, .title, etc.
+const styles = oinkz`
+  .container { ... }
+  .title { ... }
+`
+```
+
+### Simple Class Selectors Only
+
+Only top-level class selectors in the format `.className` are recognized:
+
+```tsx
+const styles = oinkz`
+  .valid { }           // ✅ Exported as styles.valid
+  .also-valid { }      // ✅ Exported as styles.also_valid (hyphens → underscores)
+  .foo.bar { }         // ❌ Not exported (compound selector)
+  .parent .child { }   // ❌ Not exported (descendant selector)
+  .item:hover { }      // ❌ Not exported (pseudo-class)
+`
+```
+
+This matches the behavior of the Vite plugin's runtime exports.
+
+### Template Expressions
+
+The plugin extracts static CSS content from template literals. Dynamic interpolations are included:
+
+```tsx
+const color = 'blue'
+
+const styles = oinkz`
+  .button {
+    background: ${color}; // Interpolation included
+  }
+`
+
+// ✅ Autocomplete works for .button
+```
+
+However, class names themselves must be static - they cannot be dynamically generated.
+
+## Troubleshooting
+
+### Plugin not working
+
+<AccordionGroup>
+  <Accordion title="Verify workspace TypeScript is selected">
+    In VS Code, check the bottom-right corner of the window. You should see the TypeScript version number.
+
+    If it says "TypeScript" without a version, click it and select **Use Workspace Version**.
+  </Accordion>
+
+  <Accordion title="Restart TypeScript server">
+    In VS Code:
+    1. Open Command Palette: `Cmd+Shift+P` or `Ctrl+Shift+P`
+    2. Type and select: **TypeScript: Restart TS Server**
+
+    This forces VS Code to reload the TypeScript configuration and plugins.
+  </Accordion>
+
+  <Accordion title="Check TypeScript version">
+    The plugin requires TypeScript 5.0 or later. Check your version:
+
+    ```bash
+    npx tsc --version
+    ```
+
+    Update TypeScript if needed:
+
+    ```bash
+    npm install -D typescript@latest
+    ```
+  </Accordion>
+
+  <Accordion title="Verify plugin is installed">
+    Make sure the plugin is in your `node_modules`:
+
+    ```bash
+    ls node_modules/typescript-plugin-oink
+    ```
+
+    If not found, reinstall:
+
+    ```bash
+    npm install
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Autocomplete not appearing
+
+<AccordionGroup>
+  <Accordion title="Check oinkz import">
+    Make sure you're importing `oinkz` (not `oink`):
+
+    ```tsx
+    // ✅ Correct
+    import { oinkz } from 'oink'
+
+    // ❌ Wrong - oink returns a string
+    import { oink } from 'oink'
+    ```
+  </Accordion>
+
+  <Accordion title="Verify template format">
+    The plugin looks for the exact pattern: `const x = oinkz\`...\``
+
+    ```tsx
+    // ✅ Works
+    const styles = oinkz`...`
+
+    // ❌ Doesn't work - not a const
+    let styles = oinkz`...`
+
+    // ❌ Doesn't work - not directly assigned
+    const styles = computed(() => oinkz`...`)
+    ```
+  </Accordion>
+
+  <Accordion title="Check class selector format">
+    Only simple class selectors are recognized:
+
+    ```tsx
+    const styles = oinkz`
+      .container { }  // ✅ Works
+      .foo-bar { }    // ✅ Works (foo_bar in JS)
+      div.box { }     // ❌ Not recognized
+      .a.b { }        // ❌ Not recognized
+    `
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Vite Plugin" icon="plug" href="/api/vite-plugin-options">
+    Configure the Vite plugin for build-time CSS extraction
+  </Card>
+
+  <Card title="ESLint Plugin" icon="shield-check" href="/api/eslint-rules">
+    Set up ESLint rules to catch dynamic usage
+  </Card>
+</CardGroup>

@@ -1,0 +1,289 @@
+---
+title: "oink() API Reference"
+description: "Complete guide to the oink() function for creating single-class styles with zero runtime overhead"
+---
+
+## Overview
+
+The `oink()` function creates a unique CSS class name from the provided styles. It's used as a tagged template literal for IDE CSS support, and at build time, it's replaced with a generated class name string while the CSS is extracted to your stylesheet.
+
+```tsx
+import { oink } from 'oink'
+
+const button = oink`
+  padding: 0.5rem 1rem;
+  background: blue;
+  color: white;
+
+  :hover {
+    background: darkblue;
+  }
+`
+
+const MyButton = () => <button className={button}>Click me</button>
+```
+
+## Function Signature
+
+```typescript
+export function oink(
+  strings: TemplateStringsArray,
+  ..._values: never[]
+): string
+```
+
+### Parameters
+
+- `strings` - Template string array containing your CSS
+- `_values` - Not supported (must be empty). Dynamic expressions in the template are not allowed.
+
+### Returns
+
+- **Type**: `string`
+- **Value**: A unique generated class name (e.g., `"o_a1b2c3"` in production, `"button_a1b2c3"` in dev)
+
+<Warning>
+  Template expressions are not supported. `oink\`color: ${color};\`` will fail at build time. All CSS must be static for build-time extraction.
+</Warning>
+
+## CSS Nesting Support
+
+Oink supports full CSS nesting using postcss-nested. You can write nested selectors just like in modern CSS or Sass.
+
+### Pseudo-selectors
+
+Write pseudo-selectors naturally - they'll be automatically attached to the parent class:
+
+```tsx
+const link = oink`
+  color: blue;
+  text-decoration: none;
+
+  :hover {
+    color: darkblue;
+    text-decoration: underline;
+  }
+
+  :visited {
+    color: purple;
+  }
+
+  ::before {
+    content: '→ ';
+  }
+`
+```
+
+**Generated CSS:**
+
+```css
+.o_abc123 { color: blue; text-decoration: none; }
+.o_abc123:hover { color: darkblue; text-decoration: underline; }
+.o_abc123:visited { color: purple; }
+.o_abc123::before { content: '→ '; }
+```
+
+### Descendant selectors
+
+```tsx
+const card = oink`
+  padding: 1rem;
+  border: 1px solid #ccc;
+
+  h2 {
+    margin-top: 0;
+    font-size: 1.5rem;
+  }
+
+  p {
+    color: #666;
+  }
+
+  .highlight {
+    background: yellow;
+  }
+`
+```
+
+**Generated CSS:**
+
+```css
+.o_def456 { padding: 1rem; border: 1px solid #ccc; }
+.o_def456 h2 { margin-top: 0; font-size: 1.5rem; }
+.o_def456 p { color: #666; }
+.o_def456 .highlight { background: yellow; }
+```
+
+### Complex nesting
+
+Combine multiple nesting levels and selectors:
+
+```tsx
+const nav = oink`
+  ul {
+    list-style: none;
+    padding: 0;
+
+    li {
+      display: inline-block;
+      margin-right: 1rem;
+
+      a {
+        color: black;
+
+        :hover {
+          color: blue;
+        }
+      }
+    }
+  }
+`
+```
+
+## Build-Time Transformation
+
+<Tabs>
+  <Tab title="Development">
+    In development mode, variables are preserved for easier debugging:
+
+    **Before:**
+    ```tsx
+    const btn = oink`color: red;`
+    <button className={btn}>Click</button>
+    ```
+
+    **After:**
+    ```tsx
+    const btn = "btn_a1b2c3"
+    <button className={btn}>Click</button>
+    ```
+
+    The variable remains in the code with a readable name prefix.
+  </Tab>
+
+  <Tab title="Production">
+    In production (or with `inline: true`), constant propagation inlines values and removes intermediate variables:
+
+    **Before:**
+    ```tsx
+    const btn = oink`color: red;`
+    <button className={btn}>Click</button>
+    ```
+
+    **After:**
+    ```tsx
+    <button className="o_a1b2c3">Click</button>
+    ```
+
+    The variable is completely removed, and the class name is inlined at usage sites.
+  </Tab>
+</Tabs>
+
+## Usage Patterns
+
+### Basic component styling
+
+```tsx
+import { oink } from 'oink'
+
+const container = oink`
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+`
+
+export function Layout({ children }) {
+  return <div className={container}>{children}</div>
+}
+```
+
+### Conditional classes
+
+Combine with string concatenation or template literals:
+
+```tsx
+const base = oink`
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+`
+
+const primary = oink`
+  background: blue;
+  color: white;
+`
+
+const secondary = oink`
+  background: gray;
+  color: white;
+`
+
+function Button({ variant, children }) {
+  const variantClass = variant === 'primary' ? primary : secondary
+  return <button className={`${base} ${variantClass}`}>{children}</button>
+}
+```
+
+### Media queries
+
+```tsx
+const responsive = oink`
+  font-size: 1rem;
+
+  @media (min-width: 768px) {
+    font-size: 1.25rem;
+  }
+
+  @media (min-width: 1024px) {
+    font-size: 1.5rem;
+  }
+`
+```
+
+## Comparison with oinkz
+
+| Feature | `oink` | `oinkz` |
+|---------|--------|--------|
+| **Returns** | Single class name string | Object with multiple class names |
+| **Use case** | One component = one style block | Multiple related styles (like CSS modules) |
+| **Global styles** | Not supported | Supported (`:root`, `@keyframes`, etc.) |
+| **Syntax** | Raw CSS properties | CSS with class selectors |
+| **Type safety** | N/A (returns string) | TypeScript plugin provides autocomplete |
+
+**When to use `oink`:**
+- Single-purpose styling for a component
+- Simple, focused style blocks
+- When you don't need to share styles between elements
+
+**When to use `oinkz`:**
+- Multiple related styles in one file
+- CSS modules-like workflow
+- Need to define global styles alongside component styles
+
+## How It Works Under the Hood
+
+The transformation happens in three phases:
+
+1. **AST Parsing** (`packages/vite-plugin-oink/src/transform.ts:84-156`)
+   - The plugin uses `oxc-parser` to find all `oink\`` tagged templates
+   - Extracts the CSS string from the template literal
+   - No template expressions allowed - CSS must be static
+
+2. **CSS Processing** (`packages/vite-plugin-oink/src/css.ts:37-49`)
+   - Preprocesses pseudo-selectors (`:hover` → `&:hover`)
+   - Wraps CSS in generated class name
+   - Uses `postcss-nested` to expand nesting
+
+3. **Code Transformation** (`packages/vite-plugin-oink/src/transform.ts:226-513`)
+   - Replaces `oink\`` with class name string
+   - In production: performs constant propagation to inline values
+   - Collects generated CSS for injection at `@oink` marker
+
+<Note>
+  The runtime implementation in `packages/oink/src/index.ts` is just a fallback for development before the plugin transforms the code. In production builds, the entire function call is replaced with a string literal.
+</Note>
+
+## See Also
+
+- [oinkz() API Reference](/concepts/oinkz-api) - Multi-class stylesheet API
+- [How It Works](/concepts/how-it-works) - Technical deep dive into build-time transformation

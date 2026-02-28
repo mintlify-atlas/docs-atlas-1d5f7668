@@ -1,0 +1,142 @@
+---
+title: 'Vite Plugin Options'
+description: 'Complete configuration reference for oinkPlugin()'
+---
+
+## Overview
+
+The `oinkPlugin()` function accepts an optional configuration object to customize the behavior of the Vite plugin for Oink.
+
+## Type Definition
+
+```typescript
+export interface OinkPluginOptions {
+  /**
+   * Inline class names at usage sites and remove intermediate variables.
+   * - `true`: Always inline
+   * - `false`: Never inline
+   * - `'production'`: Only inline in production builds (default)
+   */
+  inline?: boolean | "production";
+}
+```
+
+## Options
+
+<ParamField path="inline" type="boolean | 'production'" default="'production'">
+  Controls whether class names should be inlined at usage sites and intermediate variables removed.
+
+  **Possible values:**
+  - `true` - Always inline class names in both development and production
+  - `false` - Never inline class names, keep intermediate variables
+  - `'production'` - Only inline in production builds (default behavior)
+
+  **Default:** `'production'`
+</ParamField>
+
+## Configuration Examples
+
+<CodeGroup>
+
+```typescript vite.config.ts (Default)
+import { defineConfig } from 'vite';
+import { oinkPlugin } from 'vite-plugin-oink';
+
+export default defineConfig({
+  plugins: [
+    oinkPlugin()
+    // inline: 'production' is used by default
+  ],
+});
+```
+
+```typescript vite.config.ts (Always Inline)
+import { defineConfig } from 'vite';
+import { oinkPlugin } from 'vite-plugin-oink';
+
+export default defineConfig({
+  plugins: [
+    oinkPlugin({
+      inline: true // Always inline in dev and production
+    })
+  ],
+});
+```
+
+```typescript vite.config.ts (Never Inline)
+import { defineConfig } from 'vite';
+import { oinkPlugin } from 'vite-plugin-oink';
+
+export default defineConfig({
+  plugins: [
+    oinkPlugin({
+      inline: false // Never inline, keep variables
+    })
+  ],
+});
+```
+
+```typescript vite.config.ts (Production Only)
+import { defineConfig } from 'vite';
+import { oinkPlugin } from 'vite-plugin-oink';
+
+export default defineConfig({
+  plugins: [
+    oinkPlugin({
+      inline: 'production' // Inline only in production builds
+    })
+  ],
+});
+```
+
+</CodeGroup>
+
+## Inline Behavior
+
+The `inline` option controls code transformation behavior:
+
+### When `inline: true` or `inline: 'production'` (in production)
+
+```tsx
+// Before transformation
+const styles = oink({
+  container: 'p-4 bg-blue-500',
+});
+
+function Component() {
+  return <div className={styles.container}>Hello</div>;
+}
+
+// After transformation (inlined)
+function Component() {
+  return <div className="p-4 bg-blue-500">Hello</div>;
+}
+```
+
+### When `inline: false`
+
+```tsx
+// Before transformation
+const styles = oink({
+  container: 'p-4 bg-blue-500',
+});
+
+function Component() {
+  return <div className={styles.container}>Hello</div>;
+}
+
+// After transformation (not inlined)
+const styles = {
+  container: 'p-4 bg-blue-500',
+};
+
+function Component() {
+  return <div className={styles.container}>Hello</div>;
+}
+```
+
+## Recommendations
+
+- **Default (`'production'`)**: Recommended for most projects. Provides better debugging experience in development while optimizing for production.
+- **`true`**: Use if you want consistent behavior across all environments or need to test production-like code in development.
+- **`false`**: Use for debugging purposes when you want to preserve variable names and inspect generated class names more easily.

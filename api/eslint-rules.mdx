@@ -1,0 +1,250 @@
+---
+title: "ESLint Rules"
+description: "ESLint rules reference for eslint-plugin-oink to enforce safe CSS usage patterns"
+---
+
+## Overview
+
+The `eslint-plugin-oink` package provides ESLint rules to enforce best practices and catch common mistakes when using Oink's CSS-in-JS tagged templates. These rules help ensure that your styles remain static and optimizable at build time.
+
+## Installation
+
+First, install the plugin:
+
+```bash
+npm install eslint-plugin-oink --save-dev
+```
+
+## Configuration
+
+Add the plugin to your ESLint configuration file:
+
+<CodeGroup>
+
+```javascript eslint.config.js
+import oink from 'eslint-plugin-oink';
+
+export default [
+  {
+    plugins: {
+      oink,
+    },
+    rules: {
+      'oink/no-dynamic': 'error',
+    },
+  },
+];
+```
+
+```javascript eslint.config.js (Recommended Config)
+import oink from 'eslint-plugin-oink';
+
+export default [
+  // Use the recommended configuration
+  oink.configs.recommended,
+];
+```
+
+</CodeGroup>
+
+## Rules
+
+### no-dynamic
+
+**Type:** Problem  
+**Recommended:** Yes  
+**Fixable:** No
+
+Disallows template expressions in `oink\`\`` and `oinkz\`\`` tagged templates. This rule enforces that all CSS styles remain static, which is required for build-time optimization and extraction.
+
+#### Why?
+
+Oink's tagged templates (`oink\`\`` and `oinkz\`\``) must contain only static CSS strings to enable:
+- Build-time CSS extraction and optimization
+- Static analysis of styles
+- Consistent class name generation
+- Better performance through compile-time processing
+
+Dynamic expressions prevent these optimizations and can lead to runtime errors.
+
+<Accordion title="Rule Details">
+
+This rule checks all tagged template expressions and reports an error when:
+- The tag is `oink` or `oinkz`
+- The template literal contains any template expressions (`${...}`)
+
+**Configuration:**
+
+```javascript
+{
+  rules: {
+    'oink/no-dynamic': 'error' // or 'warn'
+  }
+}
+```
+
+</Accordion>
+
+#### Examples
+
+<CodeGroup>
+
+```javascript Invalid
+import { oink, oinkz } from 'oink';
+
+// Error: Cannot contain template expressions
+const color = 'blue';
+const styles = oink`
+  color: ${color};
+  font-size: 16px;
+`;
+
+// Error: Dynamic values not allowed
+const Button = oinkz('button')`
+  padding: ${props => props.large ? '20px' : '10px'};
+  background: white;
+`;
+
+// Error: Even simple expressions are not allowed
+const size = 16;
+const text = oink`
+  font-size: ${size}px;
+`;
+```
+
+```javascript Valid
+import { oink, oinkz } from 'oink';
+
+// Correct: Static CSS only
+const styles = oink`
+  color: blue;
+  font-size: 16px;
+`;
+
+// Correct: No template expressions
+const Button = oinkz('button')`
+  padding: 20px;
+  background: white;
+`;
+
+// Correct: Use CSS variables for dynamic values
+const Card = oinkz('div')`
+  padding: var(--card-padding);
+  color: var(--text-color);
+`;
+```
+
+</CodeGroup>
+
+<Warning>
+  If you need dynamic styles, use inline styles or CSS variables instead of template expressions. You can set CSS variable values dynamically via the `style` prop:
+  
+  ```javascript
+  <div style={{ '--card-padding': '20px' }}>
+  ```
+</Warning>
+
+#### Workarounds for Dynamic Styles
+
+If you need dynamic styling, consider these approaches:
+
+<Accordion title="1. CSS Variables">
+
+```javascript
+// Define styles with CSS variables
+const Card = oinkz('div')`
+  padding: var(--spacing);
+  color: var(--text-color);
+  background: var(--bg-color);
+`;
+
+// Set variables dynamically
+function MyCard({ spacing, textColor, bgColor }) {
+  return (
+    <Card 
+      style={{
+        '--spacing': spacing,
+        '--text-color': textColor,
+        '--bg-color': bgColor,
+      }}
+    >
+      Content
+    </Card>
+  );
+}
+```
+
+</Accordion>
+
+<Accordion title="2. Conditional Class Names">
+
+```javascript
+import { oink } from 'oink';
+import { cn } from 'oink/cn';
+
+// Define multiple static styles
+const smallButton = oink`padding: 10px;`;
+const largeButton = oink`padding: 20px;`;
+
+// Apply conditionally
+function Button({ large, children }) {
+  return (
+    <button className={cn(large ? largeButton : smallButton)}>
+      {children}
+    </button>
+  );
+}
+```
+
+</Accordion>
+
+<Accordion title="3. Inline Styles for Truly Dynamic Values">
+
+```javascript
+const Button = oinkz('button')`
+  padding: 10px 20px;
+  background: white;
+  /* Static base styles */
+`;
+
+function DynamicButton({ customColor }) {
+  return (
+    <Button style={{ color: customColor }}>
+      Click me
+    </Button>
+  );
+}
+```
+
+</Accordion>
+
+## Troubleshooting
+
+<Accordion title="Why am I getting 'no-dynamic' errors?">
+
+The `no-dynamic` rule enforces static CSS in Oink tagged templates. If you're seeing errors:
+
+1. **Remove template expressions**: Replace `${variable}` with static values or CSS variables
+2. **Check for hidden expressions**: Even expressions like `${props => ...}` are not allowed
+3. **Use workarounds**: Implement dynamic styling using CSS variables, conditional classes, or inline styles
+
+</Accordion>
+
+<Accordion title="Can I disable this rule?">
+
+While you can disable the rule, it's **strongly discouraged**. The rule exists because:
+
+- Oink requires static CSS for build-time optimization
+- Dynamic expressions will likely cause runtime errors
+- The rule helps catch issues during development
+
+If you must disable it for a specific line:
+
+```javascript
+// eslint-disable-next-line oink/no-dynamic
+const styles = oink`color: ${color};`;
+```
+
+However, this code will likely fail at runtime. Use the recommended workarounds instead.
+
+</Accordion>

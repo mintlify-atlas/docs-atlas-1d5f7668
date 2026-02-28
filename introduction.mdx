@@ -1,0 +1,146 @@
+---
+title: Introduction to Oink
+description: A zero-runtime CSS-in-JS library with build-time extraction and type safety
+---
+
+# Introduction to Oink
+
+Oink is a zero-runtime CSS-in-JS library that lets you write CSS in your JavaScript and TypeScript files with complete type safety. All CSS is extracted at build time, leaving no runtime overhead in your production bundle.
+
+## Why Oink?
+
+Oink combines the developer experience of CSS-in-JS with the performance of static CSS:
+
+<CardGroup cols={2}>
+  <Card title="Zero runtime" icon="gauge-high">
+    All CSS is extracted at build time. No JavaScript runs in the browser to handle your styles.
+  </Card>
+  
+  <Card title="Type safety" icon="shield-check">
+    TypeScript plugin provides autocomplete and validates class name access in your IDE.
+  </Card>
+  
+  <Card title="Two flexible APIs" icon="code">
+    Use `oink` for single classes or `oinkz` for CSS-modules-like multi-class stylesheets.
+  </Card>
+  
+  <Card title="Build validation" icon="circle-check">
+    Invalid class references fail the build with clear error messages.
+  </Card>
+</CardGroup>
+
+## Quick example
+
+Here's what styling with Oink looks like:
+
+<CodeGroup>
+
+```tsx Single class with oink
+import { oink } from 'oink'
+
+const button = oink`
+  padding: 0.75rem 1.5rem;
+  background: #0066cc;
+  color: white;
+  border-radius: 4px;
+  
+  :hover {
+    background: #0052a3;
+  }
+`
+
+const MyButton = () => <button className={button}>Click me</button>
+```
+
+```tsx Multiple classes with oinkz
+import { oinkz } from 'oink'
+
+const styles = oinkz`
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  .title {
+    font-size: 2rem;
+    color: #333;
+  }
+`
+
+const MyPage = () => (
+  <div className={styles.container}>
+    <h1 className={styles.title}>Hello</h1>
+  </div>
+)
+```
+
+</CodeGroup>
+
+## How it works
+
+At build time, the Vite plugin transforms your code:
+
+**Before build:**
+```tsx
+const btn = oink`color: red;`
+<div className={btn}>
+```
+
+**After build (production):**
+```tsx
+<div className="o_a1b2c3">
+```
+
+The CSS is extracted and inserted at the `@oink;` marker in your stylesheet, and in production mode, class names are inlined and intermediate variables are removed through constant propagation.
+
+## Key features
+
+### Two APIs for different needs
+
+- **`oink`**: Perfect for single-purpose classes and component-scoped styles
+- **`oinkz`**: CSS-modules-like syntax for stylesheets with multiple related classes
+
+### Type-safe class references
+
+With the TypeScript plugin, you get:
+- Autocomplete for class names when typing `styles.`
+- IDE errors when accessing non-existent classes
+- Hover information showing available classes
+
+### Global styles support
+
+`oinkz` passes through global styles unchanged, making it easy to define CSS variables, keyframes, and font faces:
+
+```tsx
+const styles = oinkz`
+  :root {
+    --primary: blue;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .container {
+    color: var(--primary);
+    animation: fadeIn 0.3s;
+  }
+`
+```
+
+### Static analysis
+
+The ESLint plugin catches dynamic usage that can't be statically analyzed, ensuring all your styles can be properly extracted at build time.
+
+## Get started
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install Oink and configure it for your project
+  </Card>
+  
+  <Card title="Quick start" icon="rocket" href="/quickstart">
+    Build your first component with Oink
+  </Card>
+</CardGroup>

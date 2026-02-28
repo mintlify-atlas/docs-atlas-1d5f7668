@@ -1,0 +1,306 @@
+---
+title: Type Safety
+description: TypeScript integration and validation features that catch errors before runtime
+---
+
+## Overview
+
+Oink provides multiple layers of type safety to catch errors early:
+
+1. **IDE Autocomplete** - TypeScript plugin provides suggestions
+2. **Compile-time Validation** - TypeScript plugin shows errors in your editor
+3. **Build-time Validation** - Vite plugin fails builds on invalid class references
+4. **Lint-time Validation** - ESLint plugin catches dynamic usage patterns
+
+## TypeScript Plugin Setup
+
+The TypeScript plugin enhances your IDE experience with autocomplete and error checking.
+
+### Installation
+
+```bash
+bun add -D typescript-plugin-oink
+```
+
+### Configuration
+
+Add the plugin to your `tsconfig.json`:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "plugins": [
+      { "name": "typescript-plugin-oink" }
+    ]
+  }
+}
+```
+
+### Activate in VS Code
+
+<Steps>
+  <Step title="Open Command Palette">
+    Press `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux)
+  </Step>
+  
+  <Step title="Select TypeScript Version">
+    Type "TypeScript: Select TypeScript Version" and select it
+  </Step>
+  
+  <Step title="Use Workspace Version">
+    Choose "Use Workspace Version" from the list
+  </Step>
+</Steps>
+
+<Note>
+You need to restart VS Code or reload the window after configuring the plugin.
+</Note>
+
+## Autocomplete for Class Names
+
+Once configured, the TypeScript plugin provides autocomplete for `oinkz` stylesheets:
+
+```tsx
+const styles = oinkz`
+  .container {
+    max-width: 800px;
+  }
+
+  .title {
+    font-size: 2rem;
+  }
+
+  .subtitle {
+    font-size: 1.25rem;
+  }
+`
+
+// Type "styles." and get autocomplete suggestions:
+// - container
+// - title  
+// - subtitle
+const MyComponent = () => (
+  <div className={styles.container}>
+    <h1 className={styles.title}>Hello</h1>
+  </div>
+)
+```
+
+<Accordion title="How autocomplete works">
+  The TypeScript plugin:
+  1. Parses the CSS in your `oinkz` template literals
+  2. Extracts top-level simple class selectors (`.className`)
+  3. Provides these as autocomplete suggestions
+  4. Shows them with the label "oinkz class"
+</Accordion>
+
+## Error Detection in IDE
+
+Accessing a non-existent class shows an error immediately:
+
+```tsx
+const styles = oinkz`
+  .container {
+    padding: 1rem;
+  }
+`
+
+// ❌ Error in IDE: Property 'title' does not exist.
+//    Available classes: container
+const Component = () => <div className={styles.title}>Text</div>
+```
+
+The error message shows:
+- Which property doesn't exist
+- List of available classes
+- Appears as a red squiggly line in your editor
+
+## Build-time Validation
+
+The Vite plugin validates class references during the build process:
+
+```tsx
+const styles = oinkz`
+  .button { }
+  .primary { }
+`
+
+// This will FAIL the production build:
+const App = () => <button className={styles.secondary}>Click</button>
+```
+
+Build error output:
+```
+[oink] Invalid oinkz property access:
+src/App.tsx:10:45 - Property 'secondary' does not exist on 'styles'.
+Available: button, primary
+```
+
+### Development vs Production
+
+<Accordion title="Behavior differences">
+  **Development mode (`npm run dev`):**
+  - Shows warnings in console
+  - Does NOT break the dev server
+  - Allows you to continue developing
+
+  **Production mode (`npm run build`):**
+  - Throws errors and fails the build
+  - Prevents deploying broken code
+  - Must fix all errors to complete build
+</Accordion>
+
+## ESLint Plugin
+
+The ESLint plugin catches patterns that can't be statically analyzed.
+
+### Setup
+
+```bash
+bun add -D eslint-plugin-oink
+```
+
+```js eslint.config.js
+import oinkPlugin from 'eslint-plugin-oink'
+
+export default [
+  {
+    plugins: { oink: oinkPlugin },
+    rules: {
+      'oink/no-dynamic-oink': 'error',
+    },
+  },
+]
+```
+
+### What It Catches
+
+The `no-dynamic-oink` rule prevents template expressions:
+
+```tsx
+// ❌ ESLint Error: oink`` cannot contain template expressions.
+//    Only static CSS strings are allowed.
+const color = 'blue'
+const className = oink`
+  background: ${color};
+`
+
+// ✅ Correct: Use static CSS only
+const className = oink`
+  background: blue;
+`
+```
+
+<Warning>
+Oink requires static CSS for build-time extraction. Dynamic values should be handled via CSS variables or inline styles.
+</Warning>
+
+## Type Inference
+
+### `oink` Returns String
+
+The `oink` function always returns a string:
+
+```tsx
+const button = oink`padding: 1rem;`
+// Type: string
+
+typeof button === 'string' // true
+```
+
+### `oinkz` Returns Typed Object
+
+The `oinkz` function returns a record with string values:
+
+```tsx
+const styles = oinkz`
+  .container { }
+  .title { }
+`
+
+// Type: Record<string, string>
+// With TypeScript plugin: { container: string, title: string }
+
+Object.keys(styles) // ['container', 'title']
+```
+
+## Validation Error Reference
+
+### Invalid Property Access
+
+**Cause:** Accessing a class name that doesn't exist
+
+```tsx
+const styles = oinkz`.foo { }`
+styles.bar // ❌ Error
+```
+
+**Solution:** Check available class names or add the missing class
+
+### Template Expressions Not Allowed
+
+**Cause:** Using `${}` interpolation in oink/oinkz templates
+
+```tsx
+oink`color: ${myColor};` // ❌ Error
+```
+
+**Solution:** Use static CSS or CSS variables
+
+```tsx
+// Option 1: Static CSS
+oink`color: blue;`
+
+// Option 2: CSS variables
+const styles = oinkz`
+  .dynamic {
+    color: var(--my-color);
+  }
+`
+<div 
+  className={styles.dynamic}
+  style={{ '--my-color': myColor }}
+/>
+```
+
+## Hover Information
+
+When you hover over a class property, the TypeScript plugin shows:
+
+- Property name and type
+- "(oinkz class)" label
+- Which variable it comes from
+- Warning if the class doesn't exist
+
+```tsx
+const styles = oinkz`.container { }`
+
+// Hovering over "container" shows:
+// (oinkz class) container: string
+// CSS class from styles
+styles.container
+```
+
+<Tip>
+The TypeScript plugin extracts class names by parsing CSS at the AST level, ensuring accurate detection even with complex selectors.
+</Tip>
+
+## Best Practices
+
+<Steps>
+  <Step title="Install all validation tools">
+    Use TypeScript plugin + Vite plugin + ESLint plugin for comprehensive coverage
+  </Step>
+  
+  <Step title="Enable strict mode">
+    Use `"strict": true` in tsconfig.json for better type checking
+  </Step>
+  
+  <Step title="Fix errors immediately">
+    Don't ignore TypeScript errors - they prevent runtime bugs
+  </Step>
+  
+  <Step title="Use workspace TypeScript">
+    Ensure VS Code uses the workspace TypeScript version to load the plugin
+  </Step>
+</Steps>

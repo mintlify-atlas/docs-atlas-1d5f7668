@@ -1,0 +1,177 @@
+---
+title: Installation
+description: Install and configure Oink for your project
+---
+
+# Installation
+
+This guide walks you through installing Oink and setting up all the necessary tools for the best development experience.
+
+## Package overview
+
+Oink consists of four packages:
+
+| Package | Purpose | Required |
+|---------|---------|----------|
+| `oink` | Core library with `oink` and `oinkz` functions | Yes |
+| `vite-plugin-oink` | Vite plugin for build-time CSS extraction | Yes |
+| `typescript-plugin-oink` | TypeScript language service plugin for IDE support | Optional |
+| `eslint-plugin-oink` | ESLint rules to catch invalid usage | Optional |
+
+<Steps>
+
+### Install packages
+
+Install the core library and build tools:
+
+<CodeGroup>
+
+```bash npm
+npm install oink
+npm install -D vite-plugin-oink typescript-plugin-oink eslint-plugin-oink
+```
+
+```bash yarn
+yarn add oink
+yarn add -D vite-plugin-oink typescript-plugin-oink eslint-plugin-oink
+```
+
+```bash pnpm
+pnpm add oink
+pnpm add -D vite-plugin-oink typescript-plugin-oink eslint-plugin-oink
+```
+
+```bash bun
+bun add oink
+bun add -D vite-plugin-oink typescript-plugin-oink eslint-plugin-oink
+```
+
+</CodeGroup>
+
+### Configure Vite
+
+Add the Oink plugin to your Vite configuration:
+
+```ts vite.config.ts
+import { defineConfig } from 'vite'
+import { oinkPlugin } from 'vite-plugin-oink'
+
+export default defineConfig({
+  plugins: [oinkPlugin()],
+})
+```
+
+#### Plugin options
+
+The plugin accepts an optional configuration object:
+
+```ts vite.config.ts
+oinkPlugin({
+  // Inline class names at usage sites and remove intermediate variables
+  // - true: Always inline
+  // - false: Never inline  
+  // - 'production': Only inline in production builds (default)
+  inline: 'production',
+})
+```
+
+<Note>
+The `inline` option controls constant propagation. In production mode with inlining enabled, `const btn = oink\`...\`` followed by `className={btn}` becomes just `className="o_a1b2c3"` with no intermediate variable.
+</Note>
+
+### Add CSS marker
+
+Add the `@oink;` marker in your main CSS file where generated styles should be inserted:
+
+```css styles.css
+body {
+  font-family: sans-serif;
+}
+
+@oink;
+```
+
+<Warning>
+Make sure to include the `@oink;` marker in a CSS file that's imported by your application. Without it, the generated styles won't be injected.
+</Warning>
+
+### Configure TypeScript plugin (optional)
+
+For IDE autocomplete and type checking, add the TypeScript plugin to your `tsconfig.json`:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "plugins": [
+      { "name": "typescript-plugin-oink" }
+    ]
+  }
+}
+```
+
+After adding the plugin, tell VS Code to use the workspace TypeScript version:
+
+1. Open the command palette: `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux)
+2. Type "TypeScript: Select TypeScript Version"
+3. Choose "Use Workspace Version"
+
+<Tip>
+The TypeScript plugin provides autocomplete and error checking in your editor. While optional, it significantly improves the development experience by catching errors before build time.
+</Tip>
+
+### Configure ESLint (optional)
+
+The ESLint plugin catches dynamic usage patterns that can't be statically analyzed. Add it to your ESLint config:
+
+```js eslint.config.js
+import oinkPlugin from 'eslint-plugin-oink'
+
+export default [
+  {
+    plugins: { oink: oinkPlugin },
+    rules: {
+      'oink/no-dynamic-oink': 'error',
+    },
+  },
+]
+```
+
+This rule prevents patterns like:
+
+```tsx
+// ❌ Error: Dynamic template strings can't be analyzed
+const color = getColor()
+const style = oink`color: ${color};`
+
+// ✅ Correct: All styles must be static
+const style = oink`color: blue;`
+```
+
+</Steps>
+
+## Verify installation
+
+To verify everything is working correctly, create a simple component:
+
+```tsx App.tsx
+import { oink } from 'oink'
+
+const text = oink`
+  color: blue;
+  font-size: 2rem;
+`
+
+function App() {
+  return <div className={text}>Hello Oink!</div>
+}
+
+export default App
+```
+
+Run your dev server. You should see "Hello Oink!" styled in blue at 2rem size. Check your browser's dev tools to confirm the class name has been transformed (e.g., `oink_a1b2c3` in dev mode or `o_a1b2c3` in production).
+
+## Next steps
+
+<Card title="Quick start tutorial" icon="rocket" href="/quickstart">
+  Learn how to use Oink by building a real component
+</Card>

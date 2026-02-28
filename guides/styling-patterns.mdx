@@ -1,0 +1,254 @@
+---
+title: Styling Patterns
+description: Best practices and common patterns for writing maintainable styles with Oink
+---
+
+## Single Class Styles with `oink`
+
+Use `oink` for component-scoped single class styles. This is ideal for one-off styles or when you only need a single className.
+
+```tsx
+import { oink } from 'oink'
+
+const button = oink`
+  padding: 0.75rem 1.5rem;
+  background: #0066cc;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+
+  :hover {
+    background: #0052a3;
+  }
+
+  :active {
+    background: #004080;
+  }
+`
+
+const MyButton = () => <button className={button}>Click Me</button>
+```
+
+<Note>
+Pseudo-selectors like `:hover` and `:active` don't need the `&` prefix - Oink automatically handles this.
+</Note>
+
+## Multi-Class Stylesheets with `oinkz`
+
+Use `oinkz` when you need multiple related classes, similar to CSS Modules:
+
+```tsx
+import { oinkz } from 'oink'
+
+const alertStyles = oinkz`
+  .alert {
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+  }
+
+  .success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+  }
+
+  .warning {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeeba;
+  }
+
+  .error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+  }
+`
+
+// Access classes via object properties
+const Alert = ({ type, children }) => (
+  <div className={`${alertStyles.alert} ${alertStyles[type]}`}>
+    {children}
+  </div>
+)
+```
+
+### Class Export Rules
+
+Only **top-level simple class selectors** are exported as properties:
+
+<Accordion title="What gets exported?">
+  ```css
+  /* ✅ Exported as properties */
+  .container { }
+  .title { }
+  .nav-item { }
+
+  /* ❌ NOT exported (but still styled) */
+  .foo.bar { }        /* Compound selector */
+  .parent .child { }  /* Descendant selector */
+  div.element { }     /* Element + class */
+  ```
+</Accordion>
+
+## Global Styles in `oinkz`
+
+Global selectors like `:root`, `@keyframes`, and `@font-face` pass through unchanged:
+
+```tsx
+const styles = oinkz`
+  :root {
+    --primary: #0066cc;
+    --spacing: 1rem;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .animated {
+    animation: pulse 2s infinite;
+    color: var(--primary);
+  }
+`
+
+// Use the animated class
+<div className={styles.animated}>Pulsing text</div>
+```
+
+## Combining with Utility Classes
+
+Oink works seamlessly with utility-first frameworks like Tailwind:
+
+```tsx
+import clsx from 'clsx'
+import { oink } from 'oink'
+
+const customCard = oink`
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s;
+
+  :hover {
+    transform: translateY(-2px);
+  }
+`
+
+const Card = ({ children }) => (
+  <div className={clsx('p-6 rounded-lg bg-white', customCard)}>
+    {children}
+  </div>
+)
+```
+
+## Component Patterns
+
+### Card Component with Hover Effects
+
+```tsx
+const card = oink`
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+
+  :hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+`
+```
+
+### Badge Component
+
+```tsx
+const badge = oink`
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: #e8f4fd;
+  color: #0066cc;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+`
+
+const Badge = ({ children }) => <span className={badge}>{children}</span>
+```
+
+### Compound Selectors
+
+You can use compound selectors, but they won't be exported:
+
+```tsx
+const styles = oinkz`
+  .alert {
+    padding: 1rem;
+    border-radius: 8px;
+  }
+
+  .success {
+    background: #d4edda;
+  }
+
+  /* This applies to elements with BOTH classes */
+  .alert.success {
+    font-weight: bold;
+  }
+`
+
+// Apply both classes manually
+<div className={clsx(styles.alert, styles.success)}>
+  Success message with bold text
+</div>
+```
+
+## Inline Animations
+
+You can define animations inline within `oinkz`:
+
+```tsx
+const styles = oinkz`
+  @keyframes scroll {
+    from { transform: translateX(100%); }
+    to { transform: translateX(-100%); }
+  }
+
+  .ticker {
+    animation: scroll 10s linear infinite;
+  }
+`
+
+<div className={styles.ticker}>Scrolling content</div>
+```
+
+<Tip>
+For animations used across multiple components, define them once in a global `oinkz` stylesheet and reference them by name.
+</Tip>
+
+## Best Practices
+
+<Steps>
+  <Step title="Choose the right API">
+    Use `oink` for single classes, `oinkz` for related groups of classes
+  </Step>
+  
+  <Step title="Keep styles colocated">
+    Define styles near the components that use them for better maintainability
+  </Step>
+  
+  <Step title="Use semantic class names">
+    In `oinkz`, use descriptive names like `.container`, `.title`, `.error` rather than `.c1`, `.t1`
+  </Step>
+  
+  <Step title="Leverage TypeScript autocomplete">
+    Install the TypeScript plugin to get autocomplete for `oinkz` class names
+  </Step>
+</Steps>
+
+<Warning>
+Oink only supports static CSS strings. Template expressions like `` oink`color: ${primaryColor};` `` are not allowed.
+</Warning>

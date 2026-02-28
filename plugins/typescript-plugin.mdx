@@ -1,0 +1,225 @@
+---
+title: TypeScript Plugin
+description: Enable IDE autocomplete and type checking for oinkz class names
+---
+
+The TypeScript language service plugin provides intelligent autocomplete, hover information, and error checking for `oinkz` class names directly in your editor.
+
+## Features
+
+- **Autocomplete**: Get suggestions for class names defined in `oinkz` templates
+- **Type Safety**: Catch invalid property accesses before runtime
+- **Hover Info**: See which CSS classes belong to each `oinkz` variable
+- **Real-time Validation**: Errors appear in your editor as you type
+
+## Installation
+
+<Steps>
+  <Step title="Install the plugin">
+    Install `typescript-plugin-oink` as a dev dependency:
+
+    ```bash
+    npm install --save-dev typescript-plugin-oink
+    ```
+  </Step>
+
+  <Step title="Configure TypeScript">
+    Add the plugin to your `tsconfig.json`:
+
+    ```json tsconfig.json
+    {
+      "compilerOptions": {
+        "plugins": [
+          { "name": "typescript-plugin-oink" }
+        ]
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Restart your editor">
+    Restart VS Code or your TypeScript language server to load the plugin.
+
+    <Warning>
+      Language service plugins require an editor restart to take effect. In VS Code, use **Command Palette** → **TypeScript: Restart TS Server**.
+    </Warning>
+  </Step>
+</Steps>
+
+## Usage
+
+Once installed, the plugin automatically enhances your editor experience:
+
+### Autocomplete
+
+When accessing properties on a `oinkz` variable, you'll get autocomplete suggestions:
+
+```tsx
+const styles = oinkz`
+  .button { background: blue; }
+  .text { font-size: 16px; }
+  .icon { width: 20px; }
+`;
+
+// Type "styles." and see: button, text, icon
+<div className={styles.button} />
+```
+
+The plugin parses the CSS content to extract simple class selectors (`.className`) and provides them as completion options.
+
+### Error Detection
+
+Invalid property accesses are highlighted with red squiggly lines:
+
+```tsx
+const styles = oinkz`
+  .container { padding: 20px; }
+`;
+
+// ❌ Error: Property 'wrapper' does not exist.
+//    Available classes: container
+<div className={styles.wrapper} />
+```
+
+### Hover Information
+
+Hover over a class name to see its origin:
+
+```tsx
+const styles = oinkz`
+  .header { font-weight: bold; }
+`;
+
+// Hovering over "header" shows:
+// (oinkz class) header: string
+// CSS class from styles
+<div className={styles.header} />
+```
+
+## How It Works
+
+The TypeScript plugin operates at the language service level:
+
+1. **Parse**: Scans your source files for `oinkz` tagged templates
+2. **Extract**: Identifies all simple class selectors (`.className`)
+3. **Analyze**: Builds a mapping of variable names to class names
+4. **Enhance**: Injects completions and diagnostics into the editor
+
+### Class Name Extraction
+
+The plugin extracts **simple class selectors only**:
+
+```css
+/* ✅ Exported as properties */
+.button { }
+.text { }
+
+/* ❌ Not exported (complex selectors) */
+.button:hover { }
+.button .icon { }
+.button[disabled] { }
+```
+
+This matches the runtime behavior of `oinkz`, which only exports top-level simple classes.
+
+## Editor Support
+
+### VS Code
+
+The plugin works out of the box in VS Code when using the workspace TypeScript version:
+
+1. Open **Command Palette** (Cmd/Ctrl+Shift+P)
+2. Run **TypeScript: Select TypeScript Version**
+3. Choose **Use Workspace Version**
+
+### WebStorm / IntelliJ
+
+WebStorm automatically detects TypeScript plugins configured in `tsconfig.json`. Ensure **Preferences** → **Languages & Frameworks** → **TypeScript** → **TypeScript Language Service** is enabled.
+
+### Other Editors
+
+Any editor using the TypeScript language server (e.g., Neovim, Emacs, Sublime) will support the plugin automatically.
+
+## Configuration
+
+The plugin requires no additional configuration beyond adding it to `tsconfig.json`. It automatically detects `oinkz` usage in your project.
+
+### Complete Example
+
+<CodeGroup>
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "lib": ["ES2020", "DOM"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "moduleResolution": "bundler",
+    "plugins": [
+      { "name": "typescript-plugin-oink" }
+    ]
+  },
+  "include": ["src"]
+}
+```
+
+```tsx App.tsx
+import { oinkz } from "oink";
+
+const styles = oinkz`
+  .card {
+    padding: 20px;
+    border-radius: 8px;
+  }
+  .title {
+    font-size: 24px;
+    font-weight: bold;
+  }
+`;
+
+export function App() {
+  return (
+    <div className={styles.card}>
+      <h1 className={styles.title}>Hello</h1>
+    </div>
+  );
+}
+```
+</CodeGroup>
+
+## Troubleshooting
+
+### Plugin Not Working
+
+If autocomplete or errors aren't appearing:
+
+1. **Verify installation**: Check that `typescript-plugin-oink` is in `package.json`
+2. **Check tsconfig.json**: Ensure the plugin is listed in `compilerOptions.plugins`
+3. **Restart language server**: Use **TypeScript: Restart TS Server** in VS Code
+4. **Check workspace version**: Ensure you're using the workspace TypeScript version, not the VS Code bundled version
+
+### No Completions Appearing
+
+The plugin only provides completions when:
+
+- Typing after a dot on a `oinkz` variable (e.g., `styles.`)
+- The CSS template contains simple class selectors (`.className`)
+
+Complex selectors like `.button:hover` or `.parent .child` are not exported.
+
+### Errors Not Showing
+
+The plugin adds semantic diagnostics for invalid property accesses. If errors aren't appearing:
+
+- Check that the property truly doesn't exist in the CSS
+- Verify the `oinkz` variable is defined in the same file
+- Look in the **Problems** panel (VS Code) for diagnostic messages
+
+## Limitations
+
+- **Single-file only**: The plugin analyzes `oinkz` definitions and usages within the same file
+- **Static analysis**: Dynamic class name generation is not supported
+- **Simple selectors**: Only top-level `.className` selectors are extracted
+
+For runtime validation, use the [Vite Plugin](/plugins/vite-plugin) which performs additional checks during builds.

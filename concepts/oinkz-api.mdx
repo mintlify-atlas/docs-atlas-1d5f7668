@@ -1,0 +1,461 @@
+---
+title: "oinkz() API Reference"
+description: "Complete guide to the oinkz() function for creating multi-class stylesheets with CSS modules-like syntax"
+---
+
+## Overview
+
+The `oinkz()` function creates multiple CSS classes from a stylesheet-like syntax. It returns an object mapping class names to generated unique class names, similar to CSS Modules. This is ideal for defining multiple related styles in a single block.
+
+```tsx
+import { oinkz } from 'oink'
+
+const styles = oinkz`
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  .title {
+    font-size: 2rem;
+    color: #333;
+  }
+
+  .title:hover {
+    color: blue;
+  }
+`
+
+const MyPage = () => (
+  <div className={styles.container}>
+    <h1 className={styles.title}>Hello</h1>
+  </div>
+)
+```
+
+## Function Signature
+
+```typescript
+export function oinkz<K extends string = string>(
+  strings: TemplateStringsArray,
+  ..._values: never[]
+): Record<K, string>
+```
+
+### Parameters
+
+- `strings` - Template string array containing your stylesheet CSS
+- `_values` - Not supported (must be empty). Dynamic expressions are not allowed.
+
+### Returns
+
+- **Type**: `Record<K, string>`
+- **Value**: An object mapping original class names to generated class names
+
+**Example return value:**
+```tsx
+{
+  container: "o_abc123",
+  title: "o_def456"
+}
+```
+
+<Warning>
+  Template expressions are not supported. All CSS must be static for build-time extraction - dynamic expressions will fail at build time.
+</Warning>
+
+## Class Selector Rules
+
+Only **top-level simple class selectors** are exported as properties on the returned object.
+
+### Exported selectors
+
+These become properties you can access:
+
+```tsx
+const styles = oinkz`
+  .container { }   /* ✓ Exported as styles.container */
+  .title { }       /* ✓ Exported as styles.title */
+  .btn-primary { } /* ✓ Exported as styles['btn-primary'] */
+`
+```
+
+### Non-exported selectors
+
+These style elements but aren't exported as properties:
+
+```tsx
+const styles = oinkz`
+  .container .title { }    /* ✗ Descendant selector - not exported */
+  .foo.bar { }             /* ✗ Compound selector - not exported */
+  .title:hover { }         /* ✗ Pseudo-selector - not exported */
+  
+  .nested {
+    .child { }             /* ✗ Nested selector - not exported */
+  }
+`
+```
+
+<Note>
+  Non-exported selectors still generate CSS and work correctly - they just don't appear as properties on the `styles` object. Use the base class name to apply them.
+</Note>
+
+## Global Styles Support
+
+Unlike `oink()`, `oinkz()` passes through global styles unchanged. This makes it perfect for defining component styles alongside global CSS.
+
+### Supported global constructs
+
+<CodeGroup>
+
+```tsx CSS Variables
+const styles = oinkz`
+  :root {
+    --primary-color: blue;
+    --spacing-unit: 0.25rem;
+  }
+
+  .container {
+    color: var(--primary-color);
+    padding: var(--spacing-unit);
+  }
+`
+```
+
+```tsx Keyframes
+const styles = oinkz`
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(20px); }
+    to { transform: translateY(0); }
+  }
+
+  .animated {
+    animation: fadeIn 0.3s ease-in;
+  }
+`
+```
+
+```tsx Font Faces
+const styles = oinkz`
+  @font-face {
+    font-family: 'CustomFont';
+    src: url('/fonts/custom.woff2') format('woff2');
+  }
+
+  .text {
+    font-family: 'CustomFont', sans-serif;
+  }
+`
+```
+
+```tsx Other Global Selectors
+const styles = oinkz`
+  html, body {
+    margin: 0;
+    padding: 0;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  .container {
+    max-width: 800px;
+  }
+`
+```
+
+</CodeGroup>
+
+**Rule:** Only class selectors are transformed and exported. Everything else (at-rules, element selectors, `:root`, etc.) is output as-is.
+
+## Type Safety
+
+### TypeScript Plugin
+
+With `typescript-plugin-oink` configured, you get full IDE support:
+
+```tsx
+const styles = oinkz`
+  .container { }
+  .title { }
+`
+
+// ✓ Autocomplete shows: container, title
+styles.
+
+// ✓ TypeScript error in IDE:
+styles.notExist
+//     ~~~~~~~~ Property 'notExist' does not exist
+```
+
+**Setup:**
+
+```json
+// tsconfig.json
+{
+  "compilerOptions": {
+    "plugins": [
+      { "name": "typescript-plugin-oink" }
+    ]
+  }
+}
+```
+
+Then in VS Code: `Cmd+Shift+P` → "TypeScript: Select TypeScript Version" → "Use Workspace Version"
+
+### Build-Time Validation
+
+Even without the TypeScript plugin, the Vite plugin validates property access at build time:
+
+```tsx
+const styles = oinkz`
+  .container { }
+  .title { }
+`
+
+<div className={styles.nonexistent} />
+//                    ~~~~~~~~~~~ Build error!
+```
+
+**Error message:**
+```
+[oink] Invalid oinkz property access:
+App.tsx:12:34 - Property 'nonexistent' does not exist on 'styles'.
+Available: container, title
+```
+
+The build will fail with a clear error showing available class names.
+
+## Build-Time Transformation
+
+<Tabs>
+  <Tab title="Development">
+    In development mode, variables are preserved with the object literal:
+
+    **Before:**
+    ```tsx
+    const styles = oinkz`
+      .container { max-width: 800px; }
+      .title { font-size: 2rem; }
+    `
+    <div className={styles.container} />
+    ```
+
+    **After:**
+    ```tsx
+    const styles = { container: "container_abc123", title: "title_def456" }
+    <div className={styles.container} />
+    ```
+
+    The variable remains for easier debugging.
+  </Tab>
+
+  <Tab title="Production">
+    In production (or with `inline: true`), constant propagation inlines property accesses:
+
+    **Before:**
+    ```tsx
+    const styles = oinkz`
+      .container { max-width: 800px; }
+      .title { font-size: 2rem; }
+    `
+    <div className={styles.container} />
+    <h1 className={styles.title} />
+    ```
+
+    **After:**
+    ```tsx
+    <div className="o_abc123" />
+    <h1 className="o_def456" />
+    ```
+
+    Both the variable declaration and property accesses are removed, replaced with inline string literals.
+  </Tab>
+</Tabs>
+
+## Usage Patterns
+
+### Component-scoped styles
+
+```tsx
+import { oinkz } from 'oink'
+
+const styles = oinkz`
+  .card {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+
+  .card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  }
+
+  .header {
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #eee;
+  }
+
+  .title {
+    font-size: 1.5rem;
+    margin: 0;
+  }
+
+  .body {
+    color: #666;
+  }
+`
+
+export function Card({ title, children }) {
+  return (
+    <div className={styles.card}>
+      <div className={styles.header}>
+        <h2 className={styles.title}>{title}</h2>
+      </div>
+      <div className={styles.body}>
+        {children}
+      </div>
+    </div>
+  )
+}
+```
+
+### Combining with global styles
+
+```tsx
+const styles = oinkz`
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  :root {
+    --spinner-size: 40px;
+    --spinner-color: blue;
+  }
+
+  .spinner {
+    width: var(--spinner-size);
+    height: var(--spinner-size);
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid var(--spinner-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+`
+
+export function Spinner() {
+  return <div className={styles.spinner} />
+}
+```
+
+### Conditional classes
+
+```tsx
+const styles = oinkz`
+  .button {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .primary {
+    background: blue;
+    color: white;
+  }
+
+  .secondary {
+    background: gray;
+    color: white;
+  }
+
+  .disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`
+
+function Button({ variant = 'primary', disabled, children }) {
+  const classes = [
+    styles.button,
+    styles[variant],
+    disabled && styles.disabled
+  ].filter(Boolean).join(' ')
+
+  return <button className={classes}>{children}</button>
+}
+```
+
+## How It Works Under the Hood
+
+The transformation happens in three phases:
+
+1. **Class Extraction** (`packages/vite-plugin-oink/src/css.ts:79-104`)
+   - Parses stylesheet with PostCSS
+   - Finds all top-level class selectors (e.g., `.container`, `.title`)
+   - Generates unique names for each class
+   - Builds a mapping: `{ container: "o_abc123", title: "o_def456" }`
+
+2. **Selector Transformation** (`packages/vite-plugin-oink/src/css.ts:106-132`)
+   - Walks through all CSS rules
+   - Replaces class references with generated names
+   - Preserves global selectors (`:root`, element selectors) unchanged
+   - Uses `postcss-nested` to expand nesting
+
+3. **Code Transformation** (`packages/vite-plugin-oink/src/transform.ts:311-340`)
+   - Replaces oinkz tagged template with object literal
+   - In production: inlines property accesses and removes variables
+   - Validates property accesses at build time
+
+**Generated CSS example:**
+
+```css
+/* Input */
+.container { max-width: 800px; }
+.title { font-size: 2rem; }
+.title:hover { color: blue; }
+
+/* Output */
+.o_abc123 { max-width: 800px; }
+.o_def456 { font-size: 2rem; }
+.o_def456:hover { color: blue; }
+```
+
+<Note>
+  The runtime implementation in `packages/oink/src/index.ts:56-74` is just a fallback that uses regex to extract class names. In production builds, the entire function call is replaced with an object literal.
+</Note>
+
+## Comparison with oink
+
+| Feature | `oink` | `oinkz` |
+|---------|--------|--------|
+| **Returns** | Single class name string | Object with multiple class names |
+| **Syntax** | Raw CSS properties | CSS with class selectors |
+| **Global styles** | Not supported | Supported (`:root`, `@keyframes`, etc.) |
+| **Exported** | The generated class name | Only top-level `.className` selectors |
+| **Type safety** | N/A (returns string) | TypeScript plugin provides autocomplete |
+| **Use case** | Simple, single-purpose styling | CSS modules-like multi-class stylesheets |
+
+**When to use `oinkz`:**
+- Multiple related styles for a component
+- Need CSS modules-like workflow
+- Want to define keyframes/global styles alongside component styles
+- Want TypeScript autocomplete for class names
+
+**When to use `oink`:**
+- Single-purpose styling
+- Simple, focused style blocks
+- Don't need global styles in the same block
+
+## See Also
+
+- [oink() API Reference](/concepts/oink-api) - Single-class style API
+- [How It Works](/concepts/how-it-works) - Technical deep dive into build-time transformation

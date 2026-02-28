@@ -1,0 +1,112 @@
+---
+title: 'oink()'
+description: 'Create a unique CSS class name from the provided styles'
+---
+
+## Function Signature
+
+```typescript
+export function oink(
+  strings: TemplateStringsArray,
+  ..._values: never[]
+): string
+```
+
+## Description
+
+Creates a unique CSS class name from the provided styles. Used as a tagged template literal for IDE CSS support.
+
+At build time, this is replaced with the generated class name string. The CSS is extracted and collected into the stylesheet.
+
+## Parameters
+
+<ParamField path="strings" type="TemplateStringsArray" required>
+  The template strings array containing the CSS styles
+</ParamField>
+
+<ParamField path="_values" type="never[]">
+  Template literal values (not supported - must be empty)
+</ParamField>
+
+## Returns
+
+<ParamField path="return" type="string">
+  A unique class name string in the format `oink_[hash]`
+</ParamField>
+
+## Usage
+
+<CodeGroup>
+
+```tsx Basic Usage
+const className = oink`
+  color: black;
+  :hover {
+    color: blue;
+  }
+`;
+```
+
+```tsx Component Example
+import { oink } from 'oink';
+
+function Button() {
+  const buttonClass = oink`
+    background: blue;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    
+    :hover {
+      background: darkblue;
+    }
+  `;
+  
+  return <button className={buttonClass}>Click me</button>;
+}
+```
+
+```tsx Advanced Styles
+const card = oink`
+  background: white;
+  border: 1px solid #e5e5e5;
+  padding: 20px;
+  
+  :hover {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  @media (max-width: 768px) {
+    padding: 10px;
+  }
+`;
+```
+
+</CodeGroup>
+
+## Build-Time Behavior
+
+<Tabs>
+  <Tab title="Development">
+    In development mode, `oink()` generates a runtime hash from the CSS string and returns a class name like `oink_abc12345`.
+  </Tab>
+  
+  <Tab title="Production">
+    At build time, the entire `oink()` call is replaced with the generated class name string, and the CSS is extracted to the stylesheet.
+    
+    ```tsx
+    // Before build
+    const className = oink`color: blue;`;
+    
+    // After build
+    const className = "oink_xyz789";
+    ```
+  </Tab>
+</Tabs>
+
+## Notes
+
+- Must be used as a tagged template literal (no interpolation supported)
+- CSS is scoped to the generated class name
+- Supports all standard CSS syntax including pseudo-classes, pseudo-elements, and media queries
+- The same CSS input will always generate the same class name (deterministic hashing)

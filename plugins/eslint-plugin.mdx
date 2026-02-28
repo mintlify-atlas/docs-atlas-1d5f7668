@@ -1,0 +1,297 @@
+---
+title: ESLint Plugin
+description: Enforce static CSS rules with eslint-plugin-oink
+---
+
+The ESLint plugin enforces best practices for Oink by disallowing dynamic template expressions in `oink` and `oinkz` tagged templates. This ensures CSS remains static and extractable at build time.
+
+## Installation
+
+<Steps>
+  <Step title="Install the plugin">
+    Install `eslint-plugin-oink` alongside ESLint:
+
+    ```bash
+    npm install --save-dev eslint-plugin-oink
+    ```
+  </Step>
+
+  <Step title="Configure ESLint">
+    Add the plugin to your ESLint config file.
+
+    <Warning>
+      This plugin requires **ESLint 9.0+** and the flat config format (`eslint.config.js`). Legacy `.eslintrc` files are not supported.
+    </Warning>
+  </Step>
+</Steps>
+
+## Configuration
+
+### Recommended Config
+
+Use the pre-configured recommended ruleset:
+
+```js eslint.config.js
+import oink from "eslint-plugin-oink";
+
+export default [
+  {
+    plugins: {
+      oink,
+    },
+    rules: {
+      "oink/no-dynamic": "error",
+    },
+  },
+];
+```
+
+Or use the shorthand recommended config:
+
+```js eslint.config.js
+import oink from "eslint-plugin-oink";
+
+export default [
+  oink.configs.recommended,
+];
+```
+
+### With TypeScript ESLint
+
+Combine with `typescript-eslint` for full TypeScript support:
+
+```js eslint.config.js
+import tseslint from "typescript-eslint";
+import oink from "eslint-plugin-oink";
+
+export default tseslint.config(
+  {
+    files: ["**/*.{ts,tsx}"],
+    extends: [tseslint.configs.recommended],
+    plugins: {
+      oink,
+    },
+    rules: {
+      "oink/no-dynamic": "error",
+    },
+  },
+);
+```
+
+## Rules
+
+### `oink/no-dynamic`
+
+Disallows template expressions in `oink` and `oinkz` tagged templates.
+
+**Why?** Oink requires CSS to be statically analyzable at build time. Template expressions introduce runtime values that cannot be extracted.
+
+#### Examples
+
+<CodeGroup>
+```tsx ❌ Invalid
+import { oink } from "oink";
+
+const color = "blue";
+
+// ❌ Error: oink`` cannot contain template expressions
+const button = oink`
+  background: ${color};
+  padding: 10px;
+`;
+```
+
+```tsx ✅ Valid
+import { oink } from "oink";
+
+// ✅ Static CSS only
+const button = oink`
+  background: blue;
+  padding: 10px;
+`;
+```
+</CodeGroup>
+
+#### Options
+
+This rule has no configuration options.
+
+#### When to Use
+
+- **Always**: This rule should be enabled in all Oink projects
+- Prevents runtime errors from dynamic CSS
+- Ensures build-time CSS extraction works correctly
+
+## Rule Severity
+
+You can adjust rule severity based on your needs:
+
+<CodeGroup>
+```js Error (recommended)
+export default [
+  {
+    plugins: { oink },
+    rules: {
+      "oink/no-dynamic": "error",
+    },
+  },
+];
+```
+
+```js Warning
+export default [
+  {
+    plugins: { oink },
+    rules: {
+      "oink/no-dynamic": "warn",
+    },
+  },
+];
+```
+
+```js Disabled
+export default [
+  {
+    plugins: { oink },
+    rules: {
+      "oink/no-dynamic": "off",
+    },
+  },
+];
+```
+</CodeGroup>
+
+**Recommendation**: Use `"error"` to enforce static CSS and prevent build issues.
+
+## Complete Example
+
+Here's a full ESLint configuration with Oink, TypeScript, and React:
+
+```js eslint.config.js
+import js from "@eslint/js";
+import tseslint from "typescript-eslint";
+import react from "eslint-plugin-react";
+import reactHooks from "eslint-plugin-react-hooks";
+import oink from "eslint-plugin-oink";
+
+export default tseslint.config(
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  {
+    files: ["**/*.{ts,tsx}"],
+    plugins: {
+      react,
+      "react-hooks": reactHooks,
+      oink,
+    },
+    rules: {
+      // React rules
+      "react/react-in-jsx-scope": "off",
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
+      
+      // Oink rules
+      "oink/no-dynamic": "error",
+    },
+    settings: {
+      react: {
+        version: "detect",
+      },
+    },
+  },
+);
+```
+
+## Why Static CSS?
+
+Oink enforces static CSS to enable powerful build-time optimizations:
+
+1. **Zero Runtime**: CSS is extracted at build time, not generated at runtime
+2. **Type Safety**: TypeScript can validate class names statically
+3. **Dead Code Elimination**: Unused styles can be removed during builds
+4. **Optimal Performance**: No CSS-in-JS runtime overhead
+
+### Alternative Approaches
+
+If you need dynamic styles, consider these patterns:
+
+<CodeGroup>
+```tsx CSS Variables
+import { oink } from "oink";
+
+const button = oink`
+  background: var(--button-color);
+  padding: 10px;
+`;
+
+// Set the variable dynamically
+<button 
+  className={button} 
+  style={{ "--button-color": "blue" }}
+>
+  Click me
+</button>
+```
+
+```tsx Conditional Classes
+import { oink } from "oink";
+
+const buttonBlue = oink`
+  background: blue;
+  padding: 10px;
+`;
+
+const buttonRed = oink`
+  background: red;
+  padding: 10px;
+`;
+
+<button className={isPrimary ? buttonBlue : buttonRed}>
+  Click me
+</button>
+```
+
+```tsx Inline Styles
+import { oink } from "oink";
+
+const button = oink`
+  padding: 10px;
+`;
+
+<button 
+  className={button}
+  style={{ background: dynamicColor }}
+>
+  Click me
+</button>
+```
+</CodeGroup>
+
+## Troubleshooting
+
+### Rule Not Running
+
+If the rule isn't detecting violations:
+
+1. **Check ESLint version**: This plugin requires ESLint 9.0+
+2. **Verify plugin registration**: Ensure `oink` is in the `plugins` object
+3. **Check file patterns**: Ensure `files: ["**/*.{ts,tsx}"]` matches your source files
+4. **Run ESLint manually**: Try `npx eslint . --ext .ts,.tsx`
+
+### False Positives
+
+If the rule incorrectly flags valid code:
+
+1. Ensure you're using `oink` or `oinkz` tag names (not renamed imports)
+2. Check for syntax errors that might confuse the parser
+3. Report the issue on the [Oink GitHub repository](https://github.com/oink/oink/issues)
+
+### Migration from Legacy Config
+
+If you're using the legacy `.eslintrc` format, migrate to flat config:
+
+```bash
+npx @eslint/migrate-config .eslintrc.json
+```
+
+This generates an `eslint.config.js` file compatible with `eslint-plugin-oink`.
