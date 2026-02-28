@@ -1,0 +1,97 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "Oink",
+  "projectDescription": "A zero-runtime CSS-in-JS library with build-time extraction and type safety",
+  "theme": "palm",
+  "primaryColor": "#FF69B4",
+  "lightColor": "#FFB6D9",
+  "darkColor": "#CC5490",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/oink-api",
+              "concepts/oinkz-api",
+              "concepts/how-it-works"
+            ]
+          },
+          {
+            "group": "Plugins & Tools",
+            "pages": [
+              "plugins/vite-plugin",
+              "plugins/typescript-plugin",
+              "plugins/eslint-plugin"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/styling-patterns",
+              "guides/type-safety",
+              "guides/production-builds",
+              "guides/troubleshooting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core Library",
+            "pages": [
+              "api/oink",
+              "api/oinkz"
+            ]
+          },
+          {
+            "group": "Vite Plugin",
+            "pages": [
+              "api/vite-plugin-options"
+            ]
+          },
+          {
+            "group": "TypeScript Plugin",
+            "pages": [
+              "api/typescript-plugin-config"
+            ]
+          },
+          {
+            "group": "ESLint Plugin",
+            "pages": [
+              "api/eslint-rules"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Zero-runtime CSS extraction",
+    "Two APIs: oink for single classes, oinkz for CSS modules style",
+    "TypeScript autocomplete and validation",
+    "Build-time validation of class references",
+    "ESLint plugin for static analysis",
+    "Production optimizations with inlining"
+  ],
+  "publicApiSurface": [
+    "oink()",
+    "oinkz()",
+    "oinkPlugin()",
+    "typescript-plugin-oink",
+    "eslint-plugin-oink",
+    "no-dynamic-oink rule"
+  ]
+}
