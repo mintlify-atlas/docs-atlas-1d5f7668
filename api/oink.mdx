@@ -31,7 +31,7 @@ At build time, this is replaced with the generated class name string. The CSS is
 ## Returns
 
 <ParamField path="return" type="string">
-  A unique class name string in the format `oink_[hash]`
+  A unique class name string (format: `FileName_hash` in dev, `o_hash` in production)
 </ParamField>
 
 ## Usage
@@ -88,7 +88,7 @@ const card = oink`
 
 <Tabs>
   <Tab title="Development">
-    In development mode, `oink()` generates a runtime hash from the CSS string and returns a class name like `oink_abc12345`.
+    In development mode, `oink()` generates a class name based on the file name and CSS content, like `Button_abc12345`.
   </Tab>
   
   <Tab title="Production">
@@ -99,7 +99,7 @@ const card = oink`
     const className = oink`color: blue;`;
     
     // After build
-    const className = "oink_xyz789";
+    const className = "o_xyz789";
     ```
   </Tab>
 </Tabs>

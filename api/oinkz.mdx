@@ -54,8 +54,8 @@ const styles = oinkz`
   }
 `;
 
-// styles.container => "oink_abc123"
-// styles.title => "oink_def456"
+// styles.container => "container_abc123" (dev) or "o_abc123" (prod)
+// styles.title => "title_def456" (dev) or "o_def456" (prod)
 ```
 
 ```tsx Component Example
@@ -122,23 +122,23 @@ const invalid = styles.unknown; // ✗ TypeScript error
 
 <Tabs>
   <Tab title="Development">
-    In development mode, `oinkz()` parses class names from the CSS string using regex and generates runtime hashes for each class.
+    In development mode, `oinkz()` parses class names from the CSS string using regex and generates hashes based on the original class names.
     
     ```tsx
     const styles = oinkz`.foo { color: red; } .bar { color: blue; }`;
-    // Returns: { foo: "oink_abc123", bar: "oink_def456" }
+    // Returns: { foo: "foo_abc123", bar: "bar_def456" }
     ```
   </Tab>
   
   <Tab title="Production">
-    At build time, the entire `oinkz()` call is replaced with a literal object, and the CSS is extracted to the stylesheet.
+    At build time, the entire `oinkz()` call is replaced with a literal object with shorter class names, and the CSS is extracted to the stylesheet.
     
     ```tsx
     // Before build
     const styles = oinkz`.btn { padding: 10px; }`;
     
     // After build
-    const styles = { btn: "oink_xyz789" };
+    const styles = { btn: "o_xyz789" };
     ```
   </Tab>
 </Tabs>
